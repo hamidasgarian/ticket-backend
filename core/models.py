@@ -33,6 +33,7 @@ class Ticket(models.Model):
     qr_code = models.ImageField(upload_to='qr_codes/', blank=True, null=True)
     qr_code_id = models.IntegerField(blank=False)
     is_used = models.BooleanField(default=False)
+    
     def save(self, *args, **kwargs):
         # Generate QR code data
         qr_data = f"Ticket for {self.user} at {self.place} on {self.buy_date}"
