@@ -1,4 +1,18 @@
 from rest_framework import serializers
+from .models import *
 
-class HelloWorldSerializer(serializers.Serializer):
-    message = serializers.CharField(max_length=200)
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = '__all__'
+
+def create_user(data):
+    serializer = UserSerializer(data=data)
+
+    if serializer.is_valid():
+        user_instance = serializer.save()
+        return user_instance
+    else:
+        errors = serializer.errors
+        print(errors)
+        return errors
