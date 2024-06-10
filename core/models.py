@@ -45,10 +45,13 @@ class Ticket(models.Model):
     stadium_seat =  models.IntegerField(validators=[MaxValueValidator(100000),MinValueValidator(0)])
     buy_date = models.DateField(auto_now=True, blank=False)
     match_date = models.DateTimeField(null=True, blank=False)
-    qr_code = models.ImageField(upload_to='qr_codes/', blank=False)
-    qr_code_id = models.IntegerField(blank=False)
+    qr_code = models.ImageField(upload_to='qr_codes/', blank=True,null=True)
+    qr_code_id = models.CharField(max_length=1000,blank=True,null=True)
     is_used = models.BooleanField(default=False, blank=False)
     state = models.BooleanField(default=False, blank=False)
+    match_id = models.CharField(max_length=10,blank=True,null=True)
+    ticket_price = models.IntegerField(validators=[MaxValueValidator(1),MinValueValidator(10000000)])
+    
 
     def __str__(self):
         return f"Ticket for {self.user} to {self.place} on {self.buy_date}"

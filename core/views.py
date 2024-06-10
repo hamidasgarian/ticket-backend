@@ -12,6 +12,7 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from .serializers import *
+from .models import Ticket as TicketModel
 from ticket import settings
 
 def handle_exception(class_name, action_name):
@@ -34,7 +35,8 @@ def get_current_class_name():
     class_name = frame.f_locals.get('self').__class__.__name__
     return class_name
 
-
+def check_order_history():
+    
 
 class User(viewsets.ModelViewSet):
 
@@ -150,20 +152,20 @@ class Role(viewsets.ModelViewSet):
 class Ticket(viewsets.ViewSet):
 
     @swagger_auto_schema(
-    method='post',
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={
-            'user' :  openapi.Schema(type=openapi.TYPE_INTEGER),
-            'host_team' :  openapi.Schema(type=openapi.TYPE_INTEGER),
-            'guest_team' :  openapi.Schema(type=openapi.TYPE_INTEGER),
-            'stadium_name' :  openapi.Schema(type=openapi.TYPE_INTEGER),
-            'stadium_row' :  openapi.Schema(type=openapi.TYPE_INTEGER),
-            'stadium_position' :  openapi.Schema(type=openapi.TYPE_INTEGER),
-            'stadium_seat' :  openapi.Schema(type=openapi.TYPE_INTEGER),
-            'match_date' :  openapi.Schema(type=openapi.TYPE_STRING,example="1990-01-01")
-        },
-        required=['user','host_team','guest_team','stadium_name','match_date','stadium_row','stadium_position','stadium_seat']
+        method='post',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'user': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'host_team': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'guest_team': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'stadium_name': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'stadium_row': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'stadium_position': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'stadium_seat': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'match_date': openapi.Schema(type=openapi.TYPE_STRING, example="1990-01-01")
+            },
+            required=['user', 'host_team', 'guest_team', 'stadium_name', 'match_date', 'stadium_row', 'stadium_position', 'stadium_seat']
         )
     )
     @action(detail=False, methods=['post'])
@@ -171,22 +173,16 @@ class Ticket(viewsets.ViewSet):
 
     def post(self, request):
         serializer = TicketSerializer(data=request.data)
-        if serializer.is_valid():
+        if serializer.is_valid and check_order_history():
             ticket_instance = serializer.save()
             return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-    @swagger_auto_schema(
-    method='get'
-    )
+
+    @swagger_auto_schema(method='get')
     @action(detail=False, methods=['get'])
     @csrf_exempt
-
-    def list(self, request):
-        serializer = TicketSerializer(data=request.data)
-        if serializer.is_valid():
-            return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_200_)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+    def get(self, request):
+        tickets = TicketModel.objects.all()  # Use the model manager to fetch all tickets
+        serializer = TicketSerializer(tickets, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
