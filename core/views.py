@@ -15,6 +15,15 @@ from .serializers import *
 from .models import Ticket as TicketModel
 from ticket import settings
 
+
+
+def check_order_history(user, match_id):
+    return not Ticket.objects.filter(user=user, match_id=match_id).exists()
+
+def check_seat_availibility(ticket_id):
+    return not Ticket.objects.filter(ticket_id=ticket_id).exists()
+    
+
 def handle_exception(class_name, action_name):
     if settings.DEBUG:
         error_message = f"You have an error in action: {class_name}.{action_name}"
@@ -34,9 +43,6 @@ def get_current_class_name():
     frame = inspect.currentframe().f_back
     class_name = frame.f_locals.get('self').__class__.__name__
     return class_name
-
-def check_order_history():
-    
 
 class User(viewsets.ModelViewSet):
 
@@ -147,7 +153,12 @@ class Role(viewsets.ModelViewSet):
             err = handle_exception(get_current_class_name(), get_current_action_name())
             return JsonResponse({'ERROR': err[0]}, status=err[1])
 
+def check_order_history():
+    pass
 
+def check_seat_availibity():
+    pass
+    
     
 class Ticket(viewsets.ViewSet):
 
@@ -170,19 +181,21 @@ class Ticket(viewsets.ViewSet):
     )
     @action(detail=False, methods=['post'])
     @csrf_exempt
-
     def post(self, request):
         serializer = TicketSerializer(data=request.data)
-        if serializer.is_valid and check_order_history():
-            ticket_instance = serializer.save()
-            return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
+        if serializer.is_valid():
+            if check_order_history(request.user, request.data.get('match_id')) and check_seat_availibility(request.data.get('ticket_id')):
+                ticket_instance = serializer.save(user=request.user)
+                return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
+            else:
+                return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(method='get')
     @action(detail=False, methods=['get'])
     @csrf_exempt
-    def get(self, request):
-        tickets = TicketModel.objects.all()  # Use the model manager to fetch all tickets
+    def list(self, request):
+        tickets = TicketModel.objects.all()  
         serializer = TicketSerializer(tickets, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
