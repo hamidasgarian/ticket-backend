@@ -1,4 +1,6 @@
 from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import inspect
 
 from rest_framework.decorators import action
 from rest_framework.views import APIView
@@ -10,58 +12,142 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from .serializers import *
+from ticket import settings
 
-class CreateUser(viewsets.ViewSet):
-    @swagger_auto_schema(
-    method='post',
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={
-            'first_name' :  openapi.Schema(type=openapi.TYPE_STRING),
-            'last_name' :  openapi.Schema(type=openapi.TYPE_STRING),
-            'phone_number' :  openapi.Schema(type=openapi.TYPE_STRING),
-            'national_id' :  openapi.Schema(type=openapi.TYPE_STRING),
-            'birthday' :  openapi.Schema(type=openapi.TYPE_STRING,example="1990-01-01"),
-            'role' :  openapi.Schema(type=openapi.TYPE_INTEGER)
-        },
-        required=['first_name','last_name','phone_number','national_id','birthday','role']
-        )
-    )
-    @action(detail=False, methods=['post'])
-    @csrf_exempt
+def handle_exception(class_name, action_name):
+    if settings.DEBUG:
+        error_message = f"You have an error in action: {class_name}.{action_name}"
+        result_status_code = 485
+    else:
+        error_message = "Internal Server Error"
+        result_status_code = 500
+    return error_message, result_status_code
 
-    def post(self, request):
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            user_instance = serializer.save()
-            return Response(UserSerializer(user_instance).data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+def get_current_action_name():
+    frame = inspect.currentframe().f_back
+    action_name = inspect.getframeinfo(frame).function
+    return action_name
 
-class CreateRole(viewsets.ViewSet):
 
-    @swagger_auto_schema(
-    method='post',
-    request_body=openapi.Schema(
-        type=openapi.TYPE_OBJECT,
-        properties={
-            'role_name' :  openapi.Schema(type=openapi.TYPE_STRING),
-        },
-        required=['role_name']
-        )
-    )
-    @action(detail=False, methods=['post'])
-    @csrf_exempt
+def get_current_class_name():
+    frame = inspect.currentframe().f_back
+    class_name = frame.f_locals.get('self').__class__.__name__
+    return class_name
 
-    def post(self, request):
-        serializer = RoleSerializer(data=request.data)
-        if serializer.is_valid():
-            role_instance = serializer.save()
-            return Response(RoleSerializer(role_instance).data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class User(viewsets.ModelViewSet):
+
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    # pagination_class = CustomPagination
+    # permission_classes = [permissions.IsAuthenticated, SisaAdmin]
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
     
-class CreateTicket(viewsets.ViewSet):
+    def create(self, request, *args, **kwargs):
+        try:
+            serializer = UserSerializer(data=request.data)
+            if serializer.is_valid():
+                user_instance = serializer.save()
+                return Response(UserSerializer(user_instance).data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def partial_update(self, request, *args, **kwargs):
+        try:
+            return super().partial_update(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+
+class Role(viewsets.ModelViewSet):
+
+    queryset = Role.objects.all()
+    serializer_class = RoleSerializer
+    # pagination_class = CustomPagination
+    # permission_classes = [permissions.IsAuthenticated, SisaAdmin]
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def create(self, request, *args, **kwargs):
+        try:
+            serializer = RoleSerializer(data=request.data)
+            if serializer.is_valid():
+                ticket_instance = serializer.save()
+                return Response(RoleSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def partial_update(self, request, *args, **kwargs):
+        try:
+            return super().partial_update(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+
+    
+class Ticket(viewsets.ViewSet):
 
     @swagger_auto_schema(
     method='post',
@@ -90,3 +176,17 @@ class CreateTicket(viewsets.ViewSet):
             return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    @swagger_auto_schema(
+    method='get'
+    )
+    @action(detail=False, methods=['get'])
+    @csrf_exempt
+
+    def list(self, request):
+        serializer = TicketSerializer(data=request.data)
+        if serializer.is_valid():
+            return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_200_)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
