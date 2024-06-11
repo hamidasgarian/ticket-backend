@@ -1,15 +1,23 @@
+import json
+import inspect
+
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
-import inspect
+from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
+
 
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.schemas.generators import BaseSchemaGenerator
 
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg.renderers import OpenAPIRenderer
+from drf_yasg.inspectors import SwaggerAutoSchema
 
 from .serializers import *
 from .models import Ticket as TicketModel
@@ -17,11 +25,32 @@ from ticket import settings
 
 
 
+class CustomOpenAPIRenderer(OpenAPIRenderer):
+    def get_schema(self, *args, **kwargs):
+        swagger = super().get_schema(*args, **kwargs)
+        components = swagger.data['components']
+        for name, serializer in self.mapping.items():
+            if hasattr(serializer, 'example'):
+                components['schemas'][name]['example'] = serializer.example
+        return swagger
+
+class CustomAutoSchema(SwaggerAutoSchema):
+    def get_default_field_info(self, field):
+        field_info = super().get_default_field_info(field)
+        if hasattr(field, 'example'):
+            field_info['example'] = field.example
+        return field_info
+
+class CustomBaseSchemaGenerator(BaseSchemaGenerator):
+    def get_schema(self, request=None, public=False):
+        generator = CustomAutoSchema(generator=self)
+        return generator.get_schema(request, public)
+
 def check_order_history(user, match_id):
     return not Ticket.objects.filter(user=user, match_id=match_id).exists()
 
-def check_seat_availibility(ticket_id):
-    return not Ticket.objects.filter(ticket_id=ticket_id).exists()
+def check_seat_availibility(global_seat_uique_id):
+    return not Ticket.objects.filter(global_seat_uique_id=global_seat_uique_id).exists()
     
 
 def handle_exception(class_name, action_name):
@@ -44,7 +73,7 @@ def get_current_class_name():
     class_name = frame.f_locals.get('self').__class__.__name__
     return class_name
 
-class User(viewsets.ModelViewSet):
+class user_view(viewsets.ModelViewSet):
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -67,6 +96,7 @@ class User(viewsets.ModelViewSet):
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            # print(e)
             err = handle_exception(get_current_class_name(), get_current_action_name())
             return JsonResponse({'ERROR': err[0]}, status=err[1])
 
@@ -99,7 +129,7 @@ class User(viewsets.ModelViewSet):
             return JsonResponse({'ERROR': err[0]}, status=err[1])
 
 
-class Role(viewsets.ModelViewSet):
+class role_view(viewsets.ModelViewSet):
 
     queryset = Role.objects.all()
     serializer_class = RoleSerializer
@@ -153,14 +183,194 @@ class Role(viewsets.ModelViewSet):
             err = handle_exception(get_current_class_name(), get_current_action_name())
             return JsonResponse({'ERROR': err[0]}, status=err[1])
 
-def check_order_history():
-    pass
 
-def check_seat_availibity():
-    pass
-    
-    
-class Ticket(viewsets.ViewSet):
+class team_view(viewsets.ModelViewSet):
+
+    queryset = Team.objects.all()
+    serializer_class = TeamSerializer
+    # pagination_class = CustomPagination
+    # permission_classes = [permissions.IsAuthenticated, SisaAdmin]
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def create(self, request, *args, **kwargs):
+        try:
+            serializer = TeamSerializer(data=request.data)
+            if serializer.is_valid():
+                ticket_instance = serializer.save()
+                return Response(TeamSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def partial_update(self, request, *args, **kwargs):
+        try:
+            return super().partial_update(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+
+class stadium_view(viewsets.ModelViewSet):
+
+    queryset = Stadium.objects.all()
+    serializer_class = StadiumSerializer
+    # pagination_class = CustomPagination
+    # permission_classes = [permissions.IsAuthenticated, SisaAdmin]
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def create(self, request, *args, **kwargs):
+        try:
+            serializer = StadiumSerializer(data=request.data)
+            if serializer.is_valid():
+                ticket_instance = serializer.save()
+                return Response(StadiumSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def partial_update(self, request, *args, **kwargs):
+        try:
+            return super().partial_update(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+
+class match_view(viewsets.ModelViewSet):
+
+    queryset = Match.objects.all()
+    serializer_class = MatchSerializer
+    # renderer_classes = [CustomOpenAPIRenderer]
+    # pagination_class = CustomPagination
+    # permission_classes = [permissions.IsAuthenticated, SisaAdmin]
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def create(self, request, *args, **kwargs):
+        try:
+            serializer = MatchSerializer(data=request.data)
+            if serializer.is_valid():
+                ticket_instance = serializer.save()
+                return Response(MatchSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def partial_update(self, request, *args, **kwargs):
+        try:
+            return super().partial_update(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except Exception as e:
+            err = handle_exception(get_current_class_name(), get_current_action_name())
+            return JsonResponse({'ERROR': err[0]}, status=err[1])
+
+
+class ticket_view(viewsets.ViewSet):
+    queryset = Ticket.objects.all()
+    serializer_class = TicketSerializer
+
+    @action(detail=True, methods=['GET'])
+    @csrf_exempt
+    def detail_ticket(self, request, pk=None):
+        try:
+            ticket = Ticket.objects.get(pk=pk)
+            serializer = TicketSerializer(ticket)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Ticket.DoesNotExist:
+            return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    @swagger_auto_schema(method='get')
+    @action(detail=False, methods=['get'])
+    @csrf_exempt
+    def list_ticket(self, request):
+        tickets = Ticket.objects.all()  
+        serializer = TicketSerializer(tickets, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         method='post',
@@ -168,34 +378,159 @@ class Ticket(viewsets.ViewSet):
             type=openapi.TYPE_OBJECT,
             properties={
                 'user': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'match': openapi.Schema(type=openapi.TYPE_INTEGER),
                 'host_team': openapi.Schema(type=openapi.TYPE_INTEGER),
                 'guest_team': openapi.Schema(type=openapi.TYPE_INTEGER),
                 'stadium_name': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'stadium_row': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'stadium_position': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'stadium_seat': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'match_date': openapi.Schema(type=openapi.TYPE_STRING, example="1990-01-01")
+                'stadium_row': openapi.Schema(type=openapi.TYPE_STRING),
+                'stadium_position': openapi.Schema(type=openapi.TYPE_STRING),
+                'stadium_seat': openapi.Schema(type=openapi.TYPE_STRING)
             },
-            required=['user', 'host_team', 'guest_team', 'stadium_name', 'match_date', 'stadium_row', 'stadium_position', 'stadium_seat']
+            required=['user', 'match', 'host_team', 'guest_team', 'stadium_name', 'stadium_row', 'stadium_position', 'stadium_seat']
         )
     )
     @action(detail=False, methods=['post'])
     @csrf_exempt
-    def post(self, request):
-        serializer = TicketSerializer(data=request.data)
-        if serializer.is_valid():
-            if check_order_history(request.user, request.data.get('match_id')) and check_seat_availibility(request.data.get('ticket_id')):
-                ticket_instance = serializer.save(user=request.user)
-                return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
-            else:
-                return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def buy_ticket(self, request):
 
-    @swagger_auto_schema(method='get')
-    @action(detail=False, methods=['get'])
-    @csrf_exempt
-    def list(self, request):
-        tickets = TicketModel.objects.all()  
-        serializer = TicketSerializer(tickets, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+
+        request_data = json.loads(request.body)
+        user_id = request_data.get('user')
+        match_id = request_data.get('match')
+        host_team_id = request_data.get('host_team')
+        guest_team_id = request_data.get('guest_team')
+        stadium_name = request_data.get('stadium_name')
+        stadium_row = request_data.get('stadium_row')
+        stadium_position = request_data.get('stadium_position')
+        stadium_seat = request_data.get('stadium_seat')
+
+        
+        user_obj = User.objects.get(id=user_id)
+        match_obj = Match.objects.get(id=match_id)
+        host_team_obj = Team.objects.get(id=user_id)
+        guest_team_obj = Team.objects.get(id=user_id)
+        stadium_obj = Stadium.objects.get(id=user_id)
+
+        ticket_id = f"{user_obj.national_id}_{match_obj.match_id}_{stadium_name}_{stadium_row}_{stadium_position}_{stadium_seat}"
+        global_seat_uique_id = f"{match_obj.match_id}{stadium_name}{stadium_row}{stadium_position}{stadium_seat}"
+
+        qr_code_id = f"qr_{ticket_id}"
+        if check_order_history(user_id, match_id) and check_seat_availibility(global_seat_uique_id):
+
+            ticket_instance = Ticket.objects.create(
+                user=user_obj,
+                match=match_obj,
+                host_team=host_team_obj,
+                guest_team=guest_team_obj,
+                stadium_name=stadium_obj,
+                stadium_row=stadium_row,
+                stadium_position=stadium_position,
+                stadium_seat=stadium_seat,
+                qr_code_id=qr_code_id,
+                global_seat_uique_id=global_seat_uique_id,
+                ticket_id=ticket_id
+            )
+
+            qr = qrcode.QRCode(version=1,error_correction=qrcode.constants.ERROR_CORRECT_L,box_size=10,border=4,)
+            qr.add_data(qr_code_id)
+            qr.make(fit=True)
+
+            img = qr.make_image(fill_color="black", back_color="white")
+            buffer = BytesIO()
+            img.save(buffer, format="PNG")
+            img_name = f'{qr_code_id}.png'
+            ticket_instance.qr_code.save(img_name, ContentFile(buffer.getvalue()), save=True)
+
+            return Response({'message': 'successful'}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
+        
+    # def buy_ticket(self, request):
+    #     request_data = json.loads(request.body)
+    #     user = request_data.get('user')
+    #     match = request_data.get('match')
+    #     host_team = request_data.get('host_team')
+    #     guest_team = request_data.get('guest_team')
+    #     stadium_name = request_data.get('stadium_name')
+    #     stadium_row = request_data.get('stadium_row')
+    #     stadium_position = request_data.get('stadium_position')
+    #     stadium_seat = request_data.get('stadium_seat')
+        
+
+    #     user_obj = User.objects.get(id=1)
+    #     national_id = user_obj.national_id
+    #     match_obj = Match.objects.get(id=match)
+    #     match_id = match_obj.match_id
+    #     ticket_id = f"{national_id}_{match_id}_{stadium_name}_{stadium_row}_{stadium_position}_{stadium_seat}"
+
+    #     qr_code_id=f"qr_{ticket_id}"
+
+    #     ticket_instance = {
+    #             'user': user,
+    #             'match': match,
+    #             'host_team': host_team,
+    #             'guest_team': guest_team,
+    #             'stadium_name': stadium_name,
+    #             'stadium_row': stadium_row,
+    #             'stadium_position': stadium_position,
+    #             'stadium_seat': stadium_seat,
+    #             'qr_code_id': qr_code_id,
+    #             'ticket_id': ticket_id
+
+    #         }
+        
+
+
+    #     qr_data = f"{qr_code_id}"
+    #     qr = qrcode.QRCode(version=1,error_correction=qrcode.constants.ERROR_CORRECT_L,box_size=10,border=4,)
+    #     qr.add_data(qr_data)
+    #     qr.make(fit=True)
+
+    #     img = qr.make_image(fill='black', back_color='white')
+
+    #     buffer = BytesIO()
+    #     img.save(buffer, format="PNG")
+    #     img_name = f'{qr_code_id}.png'
+
+    #     qr.qr_code.save(img_name, File(buffer), save=False)
+
+
+    #     created_record = create_ticket(ticket_instance)
+
+    #     if created_record:
+    #         return JsonResponse({'message': 'successful'}, status=status.HTTP_201_CREATED)
+    #     else:
+    #         return JsonResponse({'message': 'unsuccessful'}, status=status.HTTP_400_BAD_REQUEST)
+    #         # print("Seat or match already booked.")
+        
+
+
+
+
+
+
+        
+        # serializer = TicketSerializer(data=request.data)
+        
+        # if serializer.is_valid():
+            
+        #     print('777777')
+        #     request_data = json.loads(request.body)
+        #     print(request_data)
+        #     print('777777')
+        #     if check_order_history(request.user, request.data.get('match_id')) and check_seat_availibility(request.data.get('ticket_id')):
+        #         ticket_instance = serializer.save()
+        #         return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
+        #     else:
+        #         return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
+        # else:
+        #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        
+            #     ticket_instance = serializer.save(user=request.user)
+            #     return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
+            # else:
+            #     return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    

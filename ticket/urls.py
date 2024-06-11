@@ -8,6 +8,7 @@ from drf_yasg import openapi
 
 from rest_framework import permissions
 
+
 schema_view = get_schema_view(
     openapi.Info(
         title="Powered By Kaventador Development Team",
@@ -19,7 +20,7 @@ schema_view = get_schema_view(
     ),
     public=True,
     permission_classes=(permissions.AllowAny,),
-
+    
 )
 
 urlpatterns = [
