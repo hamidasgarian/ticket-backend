@@ -1,9 +1,5 @@
-# everything that has a beginning has an end
+__everything that has a beginning has an end__
 
-
-<br/><br/>
-<br/><br/>
-<br/><br/>
 <br/><br/>
 <br/><br/>
 
