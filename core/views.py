@@ -1,18 +1,22 @@
 import json
 import inspect
+import os
 
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.http import FileResponse, Http404
+from django.conf import settings
 
 
 from rest_framework.decorators import action
 from rest_framework.views import APIView
-from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.schemas.generators import BaseSchemaGenerator
+from rest_framework import viewsets, permissions
+
 
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -25,26 +29,22 @@ from ticket import settings
 
 
 
-class CustomOpenAPIRenderer(OpenAPIRenderer):
-    def get_schema(self, *args, **kwargs):
-        swagger = super().get_schema(*args, **kwargs)
-        components = swagger.data['components']
-        for name, serializer in self.mapping.items():
-            if hasattr(serializer, 'example'):
-                components['schemas'][name]['example'] = serializer.example
-        return swagger
+def serve_logo(request, team_id):
+    try:
+        team = Team.objects.get(pk=team_id)
+        if team.logo_filename:
+            file_path = os.path.join(settings.BASE_DIR, 'static', team.logo_filename)
+            if os.path.exists(file_path):
+                return FileResponse(open(file_path, 'rb'), content_type='image/png')
+        raise Http404("Logo not found.")
+    except Team.DoesNotExist:
+        raise Http404("Team not found.")
 
-class CustomAutoSchema(SwaggerAutoSchema):
-    def get_default_field_info(self, field):
-        field_info = super().get_default_field_info(field)
-        if hasattr(field, 'example'):
-            field_info['example'] = field.example
-        return field_info
 
-class CustomBaseSchemaGenerator(BaseSchemaGenerator):
-    def get_schema(self, request=None, public=False):
-        generator = CustomAutoSchema(generator=self)
-        return generator.get_schema(request, public)
+def serve_slider(request, filename):
+    file_path = os.path.join(settings.BASE_DIR, 'static', filename)
+    return FileResponse(open(file_path, 'rb'), content_type='image/png')
+    
 
 def check_order_history(user, match_id):
     return not Ticket.objects.filter(user=user, match_id=match_id).exists()
@@ -96,7 +96,7 @@ class user_view(viewsets.ModelViewSet):
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            # print(e)
+            print(e)
             err = handle_exception(get_current_class_name(), get_current_action_name())
             return JsonResponse({'ERROR': err[0]}, status=err[1])
 
@@ -353,6 +353,7 @@ class match_view(viewsets.ModelViewSet):
 class ticket_view(viewsets.ViewSet):
     queryset = Ticket.objects.all()
     serializer_class = TicketSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     @action(detail=True, methods=['GET'])
     @csrf_exempt

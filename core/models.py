@@ -3,6 +3,11 @@ from django.core import validators
 from django.core.validators import MinLengthValidator,MaxValueValidator,MinValueValidator
 from django.core.exceptions import ValidationError
 from django.core.files import File
+from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+
+def generate_logo_filename(team_name):
+    return f"{team_name.replace(' ', '_').lower()}_logo.png"
 
 def only_digits_validator(value):
     if not value.isdigit():
@@ -13,19 +18,18 @@ class Role(models.Model):
 
     def str(self):
         return self.name
-    
-class User(models.Model):
-    first_name = models.CharField(max_length=50, blank=False)
-    last_name = models.CharField(max_length=50, blank=False)
-    password = models.CharField(max_length=50, blank=False)
-    phone_number = models.CharField(max_length=11, blank=False, validators=[MinLengthValidator(11)],unique=True)
-    national_id = models.CharField(max_length=10, blank=False, validators=[MinLengthValidator(10),only_digits_validator],unique=True)
-    birthday = models.DateField(null=True, blank=False)
-    role = models.ForeignKey(Role, on_delete=models.CASCADE)
 
-    def __str__(self):
-        return f"{self.national_id}"
-        # return f"firstname is {self.first_name} and last name is {self.last_name}"
+class User(AbstractUser):
+    phone_number = models.CharField(max_length=11,validators=[MinLengthValidator(11)],unique=True)
+    national_id = models.CharField(max_length=10,validators=[MinLengthValidator(10),only_digits_validator],unique=True)
+    first_name = models.CharField(max_length=255)
+    last_name = models.CharField(max_length=255)   
+    birthday = models.DateField(null=True, blank=True) 
+    role = models.ForeignKey(Role, on_delete=models.CASCADE)  
+    
+    def __str__(self) -> str:
+        return f"{self.first_name} {self.last_name}:{self.phone_number}"
+    
 
 class Stadium(models.Model):
     stadium_name = models.CharField(max_length=50, blank=False)
@@ -45,6 +49,12 @@ class Match(models.Model):
 
 class Team(models.Model):
     team_name = models.CharField(max_length=50, blank=False)
+    logo_filename = models.CharField(max_length=100, blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.logo_filename:
+            self.logo_filename = generate_logo_filename(self.team_name)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.team_name
@@ -59,7 +69,7 @@ class Ticket(models.Model):
     stadium_row = models.CharField(max_length=10,blank=False,null=False)
     stadium_position = models.CharField(max_length=10,blank=False,null=False)
     stadium_seat =  models.CharField(max_length=10,blank=False,null=False)
-    buy_date = models.DateField(auto_now=True, blank=False)
+    buy_date = models.DateTimeField(auto_now=True, blank=False)
     qr_code = models.ImageField(upload_to='qr_codes/', blank=True,null=True)
     qr_code_id = models.CharField(max_length=1000,blank=True,null=True)
     is_used = models.BooleanField(default=False, blank=False)

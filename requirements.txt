@@ -5,3 +5,4 @@ qrcode
 Pillow
 mysqlclient
 drf-yasg
+djangorestframework-simplejwt

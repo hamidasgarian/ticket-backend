@@ -10,19 +10,16 @@ from django.core.files import File
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = '__all__'
+        fields = ('id', 'username', 'password', 'phone_number', 'email', 'national_id', 
+                  'first_name', 'last_name', 'birthday', 'role')
+        extra_kwargs = {
+            'password': {'write_only': True},  
+        }
 
+    def create(self, validated_data):
+        user = User.objects.create_user(**validated_data)
+        return user
 
-def create_user(data):
-    serializer = UserSerializer(data=data)
-
-    if serializer.is_valid():
-        user_instance = serializer.save()
-        return user_instance
-    else:
-        errors = serializer.errors
-        print(errors)
-        return errors
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,7 +40,8 @@ def role(data):
 class TeamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Team
-        fields = '__all__'
+        exclude = ['logo_filename']
+        # fields = '__all__'
 
 def team(data):
     serializer = TeamSerializer(data=data)

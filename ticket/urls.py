@@ -8,6 +8,8 @@ from drf_yasg import openapi
 
 from rest_framework import permissions
 
+from core.views import *
+
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -27,4 +29,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('api/v1/', include('core.urls')),
+    path('team/logo/<int:team_id>/', serve_logo, name='serve_logo'),
+    path('slider/<str:filename>/', serve_slider, name='serve_slider'), 
 ]
