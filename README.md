@@ -1,5 +1,6 @@
-deployed at 2024.10.06
+__everything that has a beginning has an end__
 
+<br/><br/>
+<br/><br/>
 
-
-powered by Kaventador, Ashkboos and Joker
+powered by Kaventador, Ashkboos and Jabarsing

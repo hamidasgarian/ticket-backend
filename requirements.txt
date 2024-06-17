@@ -1,5 +1,7 @@
+setuptools
 django
 djangorestframework
+django-cors-headers
 python_dotenv
 qrcode
 Pillow

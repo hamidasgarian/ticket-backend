@@ -37,6 +37,9 @@ REST_FRAMEWORK = {
 
 DEBUG = os.getenv('DEBUG-MODE','False')
 
+CORS_ALLOW_ALL_ORIGINS = True
+#APPEND_SLASH = False
+
 ALLOWED_HOSTS = []
 
 if ALLOWED_HOSTS:
@@ -54,6 +57,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_yasg',
@@ -63,6 +67,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
