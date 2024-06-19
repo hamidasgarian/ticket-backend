@@ -547,6 +547,63 @@ class ticket_view(viewsets.ViewSet):
             #     return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
             # else:
             #     return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+
+
+@swagger_auto_schema(
+        method='post',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'mobile': openapi.Schema(type=openapi.TYPE_INTEGER)
+            
+            },
+            required=['mobile']
+        )
+    )
+@action(detail=False, methods=['post'])
+@csrf_exempt
+def generate_verification_code(self, request):
+    request_data = json.loads(request.body)
+    mobile = request_data.get('mobile')
+    code = generate_code()
+    user_id = request.user.id
+    cache.set(f'verification_code_{user_id}', code, timeout=300)  # Store the code for 5 minutes
+    # Send the code to the user via email or any other method here.
+
+    return HttpResponse('Successfully sent the code')
+
+
+
+
+@swagger_auto_schema(
+        method='post',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'mobile': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'code': openapi.Schema(type=openapi.TYPE_INTEGER)
+            
+            },
+            required=['mobile', 'code']
+        )
+    )
+@action(detail=False, methods=['post'])
+@csrf_exempt
+def verify_code(self, request):
+    request_data = json.loads(request.body)
+    input_code = request_data.get('code')
+    user_id = request_data.get('mobile')
+    cached_code = cache.get(f'verification_code_{user_id}')
+    if cached_code and cached_code == input_code:
+        return HttpResponse('Code verified successfully.')
+    else:
+        return HttpResponse('Invalid or expired code.')
+
         
 
     
