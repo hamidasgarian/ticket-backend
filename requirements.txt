@@ -8,3 +8,7 @@ Pillow
 mysqlclient
 drf-yasg
 djangorestframework-simplejwt
+zeep
+requests
+aiohttp
+asyncio

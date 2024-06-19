@@ -8,7 +8,9 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 
-
+SMS_PANEL_USENAME = os.getenv('SMS-PANEL-USERNAME')
+SMS_PANEL_PASSWORD = os.getenv('SMS-PANEL-PASSWORD')
+SMS_PANEL_PHONE_NUMBER = os.getenv('SMS-PANEL-PHONE-NUMBER')
 SECRET_KEY = os.getenv('SECRET_KEY','django-insecure-fick$=^bmaed2d5svqa022fv0-4p@3bwy#oy0l2gs4y&959lpl')
 
 SIMPLE_JWT = {

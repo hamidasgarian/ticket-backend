@@ -27,7 +27,7 @@ from .serializers import *
 from .models import Ticket as TicketModel
 from ticket import settings
 
-
+from melipayamak import Api
 
 def serve_logo(request, team_id):
     try:
@@ -446,6 +446,21 @@ class ticket_view(viewsets.ViewSet):
         else:
             return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
         
+    def send_sms(phone_number, verify_code):
+        username = settings.SMS_PANEL_USENAME
+        password = settings.SMS_PANEL_PASSWORD
+        provider_phone_number = settings.SMS_PANEL_PHONE_NUMBER
+        api = Api(username,password)
+        sms = api.sms()
+        to = phone_number
+        _from = provider_phone_number
+        text = verify_code
+        response = sms.send(to,_from,text)
+        print(response)
+    
+    
+    
+    
     # def buy_ticket(self, request):
     #     request_data = json.loads(request.body)
     #     user = request_data.get('user')
