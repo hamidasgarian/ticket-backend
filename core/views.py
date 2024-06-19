@@ -1,13 +1,16 @@
 import json
 import inspect
 import os
+import requests
+import random
 
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.http import FileResponse, Http404
 from django.conf import settings
+from django.core.cache import cache
 
 
 from rest_framework.decorators import action
@@ -27,7 +30,47 @@ from .serializers import *
 from .models import Ticket as TicketModel
 from ticket import settings
 
-from melipayamak import Api
+from core.melipayamak import Api
+
+
+
+
+def generate_code():
+    return str(random.randint(10000, 99999))
+
+
+def send_sms2(phone_number, verify_code):
+    username = settings.SMS_PANEL_USENAME
+    password = settings.SMS_PANEL_PASSWORD
+    provider_phone_number = settings.SMS_PANEL_PHONE_NUMBER
+    api = Api(username,password)
+    sms = api.sms()
+    to = phone_number
+    _from = provider_phone_number
+    text = verify_code
+    response = sms.send(to,_from,text)
+    print(response)
+
+
+def send_sms(to, text):
+    username = "09197705347"
+    password = "Fool@dBasa14002021"
+    url = "http://api.payamak-panel.com/post/sendsms.ashx"
+
+    payload = {
+        "username": username,
+        "password": password,
+        "to": to,
+        "from": "",  # Assuming 'from' parameter should be an empty string
+        "text": text
+    }
+
+    response = requests.post(url, data=payload)
+    
+    if response.status_code == 200:
+        print("Message sent successfully")
+    else:
+        print(f"Failed to send message. Status code: {response.status_code}, Response: {response.text}")
 
 def serve_logo(request, team_id):
     try:
@@ -197,6 +240,14 @@ class team_view(viewsets.ModelViewSet):
         except Exception as e:
             err = handle_exception(get_current_class_name(), get_current_action_name())
             return JsonResponse({'ERROR': err[0]}, status=err[1])
+        
+    @action(detail=False, methods=['get'], url_path='count', url_name='count')
+    def count(self, request, *args, **kwargs):
+        try:
+            team_count = Team.objects.count()
+            return JsonResponse({'count': team_count})
+        except Exception as e:
+            return JsonResponse({'ERROR': str(e)}, status=500)
 
     def create(self, request, *args, **kwargs):
         try:
@@ -446,17 +497,7 @@ class ticket_view(viewsets.ViewSet):
         else:
             return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
         
-    def send_sms(phone_number, verify_code):
-        username = settings.SMS_PANEL_USENAME
-        password = settings.SMS_PANEL_PASSWORD
-        provider_phone_number = settings.SMS_PANEL_PHONE_NUMBER
-        api = Api(username,password)
-        sms = api.sms()
-        to = phone_number
-        _from = provider_phone_number
-        text = verify_code
-        response = sms.send(to,_from,text)
-        print(response)
+
     
     
     
@@ -553,57 +594,56 @@ class ticket_view(viewsets.ViewSet):
 
 
 
-
-@swagger_auto_schema(
-        method='post',
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'mobile': openapi.Schema(type=openapi.TYPE_INTEGER)
-            
-            },
-            required=['mobile']
+class tools(viewsets.ViewSet):
+    @swagger_auto_schema(
+            method='post',
+            request_body=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'mobile': openapi.Schema(type=openapi.TYPE_STRING)
+                
+                },
+                required=['mobile']
+            )
         )
-    )
-@action(detail=False, methods=['post'])
-@csrf_exempt
-def generate_verification_code(self, request):
-    request_data = json.loads(request.body)
-    mobile = request_data.get('mobile')
-    code = generate_code()
-    user_id = request.user.id
-    cache.set(f'verification_code_{user_id}', code, timeout=300)  # Store the code for 5 minutes
-    # Send the code to the user via email or any other method here.
-
-    return HttpResponse('Successfully sent the code')
+    @action(detail=False, methods=['post'])
+    @csrf_exempt
+    def generate_verification_code(self, request):
+        request_data = json.loads(request.body)
+        mobile = request_data.get('mobile')
+        code = generate_code()
+        cache.set(f'verification_code_{mobile}', code, timeout=300)  # Store the code for 5 minutes
+        # Send the code to the user via email or any other method here.
+        send_sms(mobile, code)
+        return HttpResponse('Successfully sent the code')
 
 
 
 
-@swagger_auto_schema(
-        method='post',
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'mobile': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'code': openapi.Schema(type=openapi.TYPE_INTEGER)
-            
-            },
-            required=['mobile', 'code']
+    @swagger_auto_schema(
+            method='post',
+            request_body=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'mobile': openapi.Schema(type=openapi.TYPE_STRING),
+                    'code': openapi.Schema(type=openapi.TYPE_STRING)
+                
+                },
+                required=['mobile', 'code']
+            )
         )
-    )
-@action(detail=False, methods=['post'])
-@csrf_exempt
-def verify_code(self, request):
-    request_data = json.loads(request.body)
-    input_code = request_data.get('code')
-    user_id = request_data.get('mobile')
-    cached_code = cache.get(f'verification_code_{user_id}')
-    if cached_code and cached_code == input_code:
-        return HttpResponse('Code verified successfully.')
-    else:
-        return HttpResponse('Invalid or expired code.')
+    @action(detail=False, methods=['post'])
+    @csrf_exempt
+    def verify_code(self, request):
+        request_data = json.loads(request.body)
+        input_code = request_data.get('code')
+        user_id = request_data.get('mobile')
+        cached_code = cache.get(f'verification_code_{user_id}')
+        if cached_code and cached_code == input_code:
+            return HttpResponse('Code verified successfully.')
+        else:
+            return HttpResponse('Invalid or expired code.')
 
-        
+            
 
     

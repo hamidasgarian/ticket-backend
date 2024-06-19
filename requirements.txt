@@ -12,3 +12,8 @@ zeep
 requests
 aiohttp
 asyncio
+django-redis
+requests
+
+
+

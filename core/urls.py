@@ -13,6 +13,7 @@ router.register(r'ticket', ticket_view, basename='ticket')
 router.register(r'stadium', stadium_view, basename='stadium')
 router.register(r'team', team_view, basename='team')
 router.register(r'match', match_view, basename='match')
+router.register(r'tools', tools, basename='tools')
 
 
 urlpatterns = [
