@@ -671,3 +671,15 @@ class ticket_view(viewsets.ViewSet):
             return Response({'message': 'successful', 'tickets': successful_tickets}, status=status.HTTP_201_CREATED)
         else:
             return Response({"detail": "Seat or match already booked for all entries.", "errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# sample json
+# {
+#   "match": 1,
+#   "seat_type": "host",
+#   "seat_position": "12",
+#   "seat_row": "12",
+#   "seat_owners": [
+#     {"national_id": "0010857222", "seat_number": "85"}, {"national_id": "0010857223", "seat_number": "86"}, {"national_id": "0010857224", "seat_number": "87"}
+#   ]
+# }
