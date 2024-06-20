@@ -30,22 +30,7 @@ class User(AbstractUser):
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}:{self.phone_number}"
     
-
-class Stadium(models.Model):
-    stadium_name = models.CharField(max_length=50, blank=False)
-
-    def __str__(self):
-        return self.stadium_name
     
-class Match(models.Model):
-    match_name = models.CharField(max_length=50, blank=False)
-    match_id = models.CharField(max_length=10,blank=True,null=True)
-    match_date = models.DateTimeField(null=True, blank=False)
-    match_time = models.TimeField(null=True, blank=False)
-    match_price = models.IntegerField(validators=[MaxValueValidator(10000000),MinValueValidator(1)])
-    
-    def __str__(self):
-        return self.match_id
 
 class Team(models.Model):
     team_name = models.CharField(max_length=50, blank=False)
@@ -59,22 +44,75 @@ class Team(models.Model):
     def __str__(self):
         return self.team_name
 
-
-class Ticket(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='user')
-    match = models.ForeignKey(Match, on_delete=models.CASCADE, db_column='match')
+class Match(models.Model):
+    match_name = models.CharField(max_length=50, blank=False)
+    match_number = models.CharField(max_length=10,blank=True,null=True)
+    match_date = models.DateTimeField(null=True, blank=False)
+    match_time = models.TimeField(null=True, blank=False)
     host_team = models.ForeignKey(Team, on_delete=models.CASCADE,  related_name='host_team', db_column='host_team')
     guest_team = models.ForeignKey(Team, on_delete=models.CASCADE,  related_name='guest_team', db_column='guest_team')
-    stadium_name = models.ForeignKey(Stadium, on_delete=models.CASCADE, db_column='stadium_name')
-    stadium_row = models.CharField(max_length=10,blank=False,null=False)
-    stadium_position = models.CharField(max_length=10,blank=False,null=False)
-    stadium_seat =  models.CharField(max_length=10,blank=False,null=False)
-    buy_date = models.DateTimeField(auto_now=True, blank=False)
-    qr_code = models.ImageField(upload_to='qr_codes/', blank=True,null=True)
-    qr_code_id = models.CharField(max_length=1000,blank=True,null=True)
-    is_used = models.BooleanField(default=False, blank=False)
-    ticket_id = models.CharField(max_length=70,blank=False,null=False)
-    global_seat_uique_id = models.CharField(max_length=60)
+    
+    def __str__(self):
+        return self.match_number
+
+
+class Stadium(models.Model):
+    stadium_name = models.CharField(max_length=50, blank=False)
+    all_available_seats = models.PositiveIntegerField(default=10000)
+    all_available_host_seats = models.PositiveIntegerField(default=7000)
+    all_available_guest_seats = models.PositiveIntegerField(default=3000)
+    match = models.ForeignKey(Match, on_delete=models.CASCADE, db_column='match')
 
     def __str__(self):
-        return f"Ticket for {self.user} to {self.stadium_name} on {self.buy_date}"
+        return self.stadium_name
+    
+    def get_all_available_seats(self, match_id):
+        # Filter based on match_id
+        stadium = Stadium.objects.get(match_id=match_id)
+        return stadium.all_available_host_seats + stadium.all_available_guest_seats
+
+    def sell_ticket(self, match_id, seat_type):
+        # Filter based on match_id
+        stadium = Stadium.objects.get(match_id=match_id)
+        
+        if seat_type == 'host':
+            if stadium.all_available_host_seats > 0:
+                stadium.all_available_host_seats -= 1
+                stadium.all_available_seats -= 1
+                stadium.save()
+            else:
+                raise ValueError("No available host seats.")
+        elif seat_type == 'guest':
+            if stadium.all_available_guest_seats > 0:
+                stadium.all_available_guest_seats -= 1
+                stadium.all_available_seats -= 1
+                stadium.save()
+            else:
+                raise ValueError("No available guest seats.")
+        else:
+            raise ValueError("Invalid seat type.")
+        
+    
+class Ticket(models.Model):
+    seat_owner = models.CharField(max_length=50, null=True, blank=True)
+    match = models.ForeignKey(Match, on_delete=models.CASCADE, db_column='match')
+    stadium_name = models.ForeignKey(Stadium, on_delete=models.CASCADE, db_column='stadium_name')
+    seat_type = models.CharField(max_length=6, blank=False)
+    seat_position = models.CharField(max_length=6, blank=False)
+    seat_row = models.CharField(max_length=6, blank=False)
+    seat_number = models.CharField(max_length=6, blank=False)
+    buy_date = models.DateField(auto_now_add=True)
+    qr_code = models.ImageField(upload_to='qr_codes/', blank=True,null=True)
+    qr_code_id = models.CharField(max_length=100,blank=True,null=True)
+    seat_availibility = models.BooleanField(default=True, blank=False)
+    ticket_id = models.CharField(max_length=70,blank=False,null=False)
+    seat_costs = models.IntegerField()
+
+    def __str__(self):
+        return f"Ticket for {self.seat_owner} to {self.stadium_name} on {self.buy_date}"
+
+
+
+    
+
+

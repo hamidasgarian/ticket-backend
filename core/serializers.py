@@ -110,10 +110,10 @@ def create_ticket(data):
         return None
 
 
-class TicketSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Ticket
-        fields = '__all__'
+# class TicketSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Ticket
+#         fields = '__all__'
 
         
 # class TicketSerializer(serializers.ModelSerializer):

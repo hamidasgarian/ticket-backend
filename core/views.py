@@ -89,11 +89,11 @@ def serve_slider(request, filename):
     return FileResponse(open(file_path, 'rb'), content_type='image/png')
     
 
-def check_order_history(user, match_id):
-    return not Ticket.objects.filter(user=user, match_id=match_id).exists()
+def check_order_history(seat_owner, match_id):
+    return not Ticket.objects.filter(seat_owner=seat_owner, match=match_id).exists()
 
-def check_seat_availibility(global_seat_uique_id):
-    return not Ticket.objects.filter(global_seat_uique_id=global_seat_uique_id).exists()
+def check_seat_availibility(ticket_id):
+    return not Ticket.objects.filter(ticket_id=ticket_id).exists()
     
 
 def handle_exception(class_name, action_name):
@@ -297,6 +297,19 @@ class stadium_view(viewsets.ModelViewSet):
     # pagination_class = CustomPagination
     # permission_classes = [permissions.IsAuthenticated, SisaAdmin]
 
+    @action(detail=False, methods=['get'], url_path='stadium-capacity/(?P<match_id>[^/.]+)')
+    def stadium_capacity(self, request, match_id=None):
+        try:
+            stadium = Stadium.objects.get(match__id=match_id)
+            data = {
+                'all_available_seats': stadium.all_available_seats,
+                'all_available_host_seats': stadium.all_available_host_seats,
+                'all_available_guest_seats': stadium.all_available_guest_seats
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        except Stadium.DoesNotExist:
+            return Response({'error': 'Stadium not found for the given match ID'}, status=status.HTTP_404_NOT_FOUND)
+
     def list(self, request, *args, **kwargs):
         try:
             return super().list(request, *args, **kwargs)
@@ -401,197 +414,102 @@ class match_view(viewsets.ModelViewSet):
             return JsonResponse({'ERROR': err[0]}, status=err[1])
 
 
-class ticket_view(viewsets.ViewSet):
-    queryset = Ticket.objects.all()
-    serializer_class = TicketSerializer
-    permission_classes = [permissions.IsAuthenticated]
+# class ticket_view(viewsets.ViewSet):
+#     queryset = Ticket.objects.all()
+#     serializer_class = TicketSerializer
+#     permission_classes = [permissions.IsAuthenticated]
 
-    @action(detail=True, methods=['GET'])
-    @csrf_exempt
-    def detail_ticket(self, request, pk=None):
-        try:
-            ticket = Ticket.objects.get(pk=pk)
-            serializer = TicketSerializer(ticket)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Ticket.DoesNotExist:
-            return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+#     @action(detail=True, methods=['GET'])
+#     @csrf_exempt
+#     def detail_ticket(self, request, pk=None):
+#         try:
+#             ticket = Ticket.objects.get(pk=pk)
+#             serializer = TicketSerializer(ticket)
+#             return Response(serializer.data, status=status.HTTP_200_OK)
+#         except Ticket.DoesNotExist:
+#             return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    @swagger_auto_schema(method='get')
-    @action(detail=False, methods=['get'])
-    @csrf_exempt
-    def list_ticket(self, request):
-        tickets = Ticket.objects.all()  
-        serializer = TicketSerializer(tickets, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+#     @swagger_auto_schema(method='get')
+#     @action(detail=False, methods=['get'])
+#     @csrf_exempt
+#     def list_ticket(self, request):
+#         tickets = Ticket.objects.all()  
+#         serializer = TicketSerializer(tickets, many=True)
+#         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @swagger_auto_schema(
-        method='post',
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'user': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'match': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'host_team': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'guest_team': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'stadium_name': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'stadium_row': openapi.Schema(type=openapi.TYPE_STRING),
-                'stadium_position': openapi.Schema(type=openapi.TYPE_STRING),
-                'stadium_seat': openapi.Schema(type=openapi.TYPE_STRING)
-            },
-            required=['user', 'match', 'host_team', 'guest_team', 'stadium_name', 'stadium_row', 'stadium_position', 'stadium_seat']
-        )
-    )
-    @action(detail=False, methods=['post'])
-    @csrf_exempt
-    def buy_ticket(self, request):
-
-
-        request_data = json.loads(request.body)
-        user_id = request_data.get('user')
-        match_id = request_data.get('match')
-        host_team_id = request_data.get('host_team')
-        guest_team_id = request_data.get('guest_team')
-        stadium_name = request_data.get('stadium_name')
-        stadium_row = request_data.get('stadium_row')
-        stadium_position = request_data.get('stadium_position')
-        stadium_seat = request_data.get('stadium_seat')
-
-        
-        user_obj = User.objects.get(id=user_id)
-        match_obj = Match.objects.get(id=match_id)
-        host_team_obj = Team.objects.get(id=user_id)
-        guest_team_obj = Team.objects.get(id=user_id)
-        stadium_obj = Stadium.objects.get(id=user_id)
-
-        ticket_id = f"{user_obj.national_id}_{match_obj.match_id}_{stadium_name}_{stadium_row}_{stadium_position}_{stadium_seat}"
-        global_seat_uique_id = f"{match_obj.match_id}{stadium_name}{stadium_row}{stadium_position}{stadium_seat}"
-
-        qr_code_id = f"qr_{ticket_id}"
-        if check_order_history(user_id, match_id) and check_seat_availibility(global_seat_uique_id):
-
-            ticket_instance = Ticket.objects.create(
-                user=user_obj,
-                match=match_obj,
-                host_team=host_team_obj,
-                guest_team=guest_team_obj,
-                stadium_name=stadium_obj,
-                stadium_row=stadium_row,
-                stadium_position=stadium_position,
-                stadium_seat=stadium_seat,
-                qr_code_id=qr_code_id,
-                global_seat_uique_id=global_seat_uique_id,
-                ticket_id=ticket_id
-            )
-
-            qr = qrcode.QRCode(version=1,error_correction=qrcode.constants.ERROR_CORRECT_L,box_size=10,border=4,)
-            qr.add_data(qr_code_id)
-            qr.make(fit=True)
-
-            img = qr.make_image(fill_color="black", back_color="white")
-            buffer = BytesIO()
-            img.save(buffer, format="PNG")
-            img_name = f'{qr_code_id}.png'
-            ticket_instance.qr_code.save(img_name, ContentFile(buffer.getvalue()), save=True)
-
-            return Response({'message': 'successful'}, status=status.HTTP_201_CREATED)
-        else:
-            return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
-        
-
-    
-    
-    
-    
-    # def buy_ticket(self, request):
-    #     request_data = json.loads(request.body)
-    #     user = request_data.get('user')
-    #     match = request_data.get('match')
-    #     host_team = request_data.get('host_team')
-    #     guest_team = request_data.get('guest_team')
-    #     stadium_name = request_data.get('stadium_name')
-    #     stadium_row = request_data.get('stadium_row')
-    #     stadium_position = request_data.get('stadium_position')
-    #     stadium_seat = request_data.get('stadium_seat')
-        
-
-    #     user_obj = User.objects.get(id=1)
-    #     national_id = user_obj.national_id
-    #     match_obj = Match.objects.get(id=match)
-    #     match_id = match_obj.match_id
-    #     ticket_id = f"{national_id}_{match_id}_{stadium_name}_{stadium_row}_{stadium_position}_{stadium_seat}"
-
-    #     qr_code_id=f"qr_{ticket_id}"
-
-    #     ticket_instance = {
-    #             'user': user,
-    #             'match': match,
-    #             'host_team': host_team,
-    #             'guest_team': guest_team,
-    #             'stadium_name': stadium_name,
-    #             'stadium_row': stadium_row,
-    #             'stadium_position': stadium_position,
-    #             'stadium_seat': stadium_seat,
-    #             'qr_code_id': qr_code_id,
-    #             'ticket_id': ticket_id
-
-    #         }
-        
+#     @swagger_auto_schema(
+#         method='post',
+#         request_body=openapi.Schema(
+#             type=openapi.TYPE_OBJECT,
+#             properties={
+#                 'user': openapi.Schema(type=openapi.TYPE_INTEGER),
+#                 'match': openapi.Schema(type=openapi.TYPE_INTEGER),
+#                 'host_team': openapi.Schema(type=openapi.TYPE_INTEGER),
+#                 'guest_team': openapi.Schema(type=openapi.TYPE_INTEGER),
+#                 'stadium_name': openapi.Schema(type=openapi.TYPE_INTEGER),
+#                 'stadium_row': openapi.Schema(type=openapi.TYPE_STRING),
+#                 'stadium_position': openapi.Schema(type=openapi.TYPE_STRING),
+#                 'stadium_seat': openapi.Schema(type=openapi.TYPE_STRING)
+#             },
+#             required=['user', 'match', 'host_team', 'guest_team', 'stadium_name', 'stadium_row', 'stadium_position', 'stadium_seat']
+#         )
+#     )
+#     @action(detail=False, methods=['post'])
+#     @csrf_exempt
+#     def buy_ticket(self, request):
 
 
-    #     qr_data = f"{qr_code_id}"
-    #     qr = qrcode.QRCode(version=1,error_correction=qrcode.constants.ERROR_CORRECT_L,box_size=10,border=4,)
-    #     qr.add_data(qr_data)
-    #     qr.make(fit=True)
-
-    #     img = qr.make_image(fill='black', back_color='white')
-
-    #     buffer = BytesIO()
-    #     img.save(buffer, format="PNG")
-    #     img_name = f'{qr_code_id}.png'
-
-    #     qr.qr_code.save(img_name, File(buffer), save=False)
-
-
-    #     created_record = create_ticket(ticket_instance)
-
-    #     if created_record:
-    #         return JsonResponse({'message': 'successful'}, status=status.HTTP_201_CREATED)
-    #     else:
-    #         return JsonResponse({'message': 'unsuccessful'}, status=status.HTTP_400_BAD_REQUEST)
-    #         # print("Seat or match already booked.")
-        
-
-
-
-
-
+#         request_data = json.loads(request.body)
+#         user_id = request_data.get('user')
+#         match_id = request_data.get('match')
+#         host_team_id = request_data.get('host_team')
+#         guest_team_id = request_data.get('guest_team')
+#         stadium_name = request_data.get('stadium_name')
+#         stadium_row = request_data.get('stadium_row')
+#         stadium_position = request_data.get('stadium_position')
+#         stadium_seat = request_data.get('stadium_seat')
 
         
-        # serializer = TicketSerializer(data=request.data)
+#         user_obj = User.objects.get(id=user_id)
+#         match_obj = Match.objects.get(id=match_id)
+#         host_team_obj = Team.objects.get(id=user_id)
+#         guest_team_obj = Team.objects.get(id=user_id)
+#         stadium_obj = Stadium.objects.get(id=user_id)
+
+#         ticket_id = f"{user_obj.national_id}_{match_obj.match_id}_{stadium_name}_{stadium_row}_{stadium_position}_{stadium_seat}"
+#         global_seat_uique_id = f"{match_obj.match_id}{stadium_name}{stadium_row}{stadium_position}{stadium_seat}"
+
+#         qr_code_id = f"qr_{ticket_id}"
+#         if check_order_history(user_id, match_id) and check_seat_availibility(global_seat_uique_id):
+
+#             ticket_instance = Ticket.objects.create(
+#                 user=user_obj,
+#                 match=match_obj,
+#                 host_team=host_team_obj,
+#                 guest_team=guest_team_obj,
+#                 stadium_name=stadium_obj,
+#                 stadium_row=stadium_row,
+#                 stadium_position=stadium_position,
+#                 stadium_seat=stadium_seat,
+#                 qr_code_id=qr_code_id,
+#                 global_seat_uique_id=global_seat_uique_id,
+#                 ticket_id=ticket_id
+#             )
+
+#             qr = qrcode.QRCode(version=1,error_correction=qrcode.constants.ERROR_CORRECT_L,box_size=10,border=4,)
+#             qr.add_data(qr_code_id)
+#             qr.make(fit=True)
+
+#             img = qr.make_image(fill_color="black", back_color="white")
+#             buffer = BytesIO()
+#             img.save(buffer, format="PNG")
+#             img_name = f'{qr_code_id}.png'
+#             ticket_instance.qr_code.save(img_name, ContentFile(buffer.getvalue()), save=True)
+
+#             return Response({'message': 'successful'}, status=status.HTTP_201_CREATED)
+#         else:
+#             return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
         
-        # if serializer.is_valid():
-            
-        #     print('777777')
-        #     request_data = json.loads(request.body)
-        #     print(request_data)
-        #     print('777777')
-        #     if check_order_history(request.user, request.data.get('match_id')) and check_seat_availibility(request.data.get('ticket_id')):
-        #         ticket_instance = serializer.save()
-        #         return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
-        #     else:
-        #         return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
-        # else:
-        #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-        
-            #     ticket_instance = serializer.save(user=request.user)
-            #     return Response(TicketSerializer(ticket_instance).data, status=status.HTTP_201_CREATED)
-            # else:
-            #     return Response({"detail": "Seat or match already booked."}, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-
 
 
 class tools(viewsets.ViewSet):
@@ -647,3 +565,109 @@ class tools(viewsets.ViewSet):
             
 
     
+class ticket_view(viewsets.ViewSet):
+    queryset = Ticket.objects.all()
+    serializer_class = TicketSerializer
+    # permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=True, methods=['GET'])
+    @csrf_exempt
+    def detail_ticket(self, request, pk=None):
+        try:
+            ticket = Ticket.objects.get(pk=pk)
+            serializer = TicketSerializer(ticket)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Ticket.DoesNotExist:
+            return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    @swagger_auto_schema(method='get')
+    @action(detail=False, methods=['get'])
+    @csrf_exempt
+    def list_ticket(self, request):
+        tickets = Ticket.objects.all()  
+        serializer = TicketSerializer(tickets, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        method='post',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+        #         'seat_owners': openapi.Schema(
+        #     type=openapi.TYPE_OBJECT,
+        #     properties={
+        #         'national_id': openapi.Schema(type=openapi.TYPE_STRING),
+        #         'seat_number': openapi.Schema(type=openapi.TYPE_STRING),
+        #     },
+        #     required=['national_id', 'seat_number'],
+        # ),
+                'match': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'seat_type': openapi.Schema(type=openapi.TYPE_STRING),
+                'seat_position': openapi.Schema(type=openapi.TYPE_STRING),
+                'seat_row': openapi.Schema(type=openapi.TYPE_STRING),
+                'seat_owners': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_OBJECT))
+            },
+            required=['seat_owners', 'match', 'seat_type', 'seat_position', 'seat_row', 'seat_numbers']
+        )
+    )
+    @action(detail=False, methods=['post'])
+    @csrf_exempt
+    def buy_ticket(self, request):
+
+
+        request_data = json.loads(request.body)
+        seat_owners = request_data.get('seat_owners')
+        match_id = request_data.get('match')
+        seat_type = request_data.get('seat_type')
+        seat_position = request_data.get('seat_position')
+        seat_row = request_data.get('seat_row')
+        seat_owners = request_data.get('seat_owners')
+
+        
+        match_obj = Match.objects.get(id=match_id)
+        stadium_obj = Stadium.objects.get(id=match_id)
+
+        successful_tickets = []
+        errors = []
+
+        for seat_owner in seat_owners:
+            ticket_id = f"{seat_owner["national_id"]}_{match_obj.match_number}_{seat_position}_{seat_row}_{seat_owner["seat_number"]}"
+            qr_code_id = f"qr_{ticket_id}"  
+            
+            if check_order_history(seat_owner["national_id"], match_id) and check_seat_availibility(ticket_id):
+                
+                stadium_obj.sell_ticket(match_id, seat_type)
+                ticket_instance = Ticket.objects.create(
+                    seat_owner=seat_owner["national_id"],
+                    match=match_obj,
+                    stadium_name=stadium_obj,
+                    seat_row=seat_row,
+                    seat_position=seat_position,
+                    seat_number=seat_owner["seat_number"],
+                    qr_code_id=qr_code_id,
+                    seat_type=seat_type,
+                    seat_costs=150000,
+                    seat_availibility=False,
+                    ticket_id=ticket_id
+
+                )
+
+                qr = qrcode.QRCode(version=1,error_correction=qrcode.constants.ERROR_CORRECT_L,box_size=10,border=4,)
+                qr.add_data(qr_code_id)
+                qr.make(fit=True)
+
+                img = qr.make_image(fill_color="black", back_color="white")
+                buffer = BytesIO()
+                img.save(buffer, format="PNG")
+                img_name = f'{qr_code_id}.png'
+                ticket_instance.qr_code.save(img_name, ContentFile(buffer.getvalue()), save=True)
+
+                successful_tickets.append(ticket_id)
+
+            else:
+                errors.append({"seat_owner": seat_owner["national_id"], "detail": "Seat or match already booked."})
+
+        if successful_tickets:
+            return Response({'message': 'successful', 'tickets': successful_tickets}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"detail": "Seat or match already booked for all entries.", "errors": errors}, status=status.HTTP_400_BAD_REQUEST)
