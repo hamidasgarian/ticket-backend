@@ -349,6 +349,7 @@ class stadium_view(viewsets.ModelViewSet):
 class capacity_view(viewsets.ModelViewSet):
 
     queryset = Capacity.objects.all()
+    serializer_class = CapacitySerializer
 
     @action(detail=False, methods=['get'], url_path='stadium-capacity/(?P<match_id>[^/.]+)')
     def stadium_capacity(self, request, match_id=None):
@@ -589,6 +590,8 @@ class ticket_view(viewsets.ViewSet):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Ticket.DoesNotExist:
             return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+
 
     @swagger_auto_schema(method='get')
     @action(detail=False, methods=['get'])
@@ -597,27 +600,46 @@ class ticket_view(viewsets.ViewSet):
         tickets = Ticket.objects.all()  
         serializer = TicketSerializer(tickets, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
     @swagger_auto_schema(
         method='post',
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-        #         'seat_owners': openapi.Schema(
-        #     type=openapi.TYPE_OBJECT,
-        #     properties={
-        #         'national_id': openapi.Schema(type=openapi.TYPE_STRING),
-        #         'seat_number': openapi.Schema(type=openapi.TYPE_STRING),
-        #     },
-        #     required=['national_id', 'seat_number'],
-        # ),
+        
+                'mobile': openapi.Schema(type=openapi.TYPE_STRING)
+            },
+            required=['mobile']
+        )
+    )
+    @action(detail=False, methods=['post'])
+    @csrf_exempt
+    def get_tickets_by_mobile(self, request):
+
+
+        request_data = json.loads(request.body)
+        mobile = request_data.get('mobile')
+        tickets = Ticket.get_by_mobile(mobile)
+        serializer = TicketSerializer(tickets, many=True)
+        # tickets_data = list(tickets.values('id', 'mobile', 'seat_owner', 'match_id'))  # Customize the fields you want to return
+        return JsonResponse(serializer.data, safe=False)
+
+
+    @swagger_auto_schema(
+        method='post',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+        
+                'mobile': openapi.Schema(type=openapi.TYPE_STRING),
                 'match': openapi.Schema(type=openapi.TYPE_INTEGER),
                 'seat_type': openapi.Schema(type=openapi.TYPE_STRING),
                 'seat_position': openapi.Schema(type=openapi.TYPE_STRING),
                 'seat_row': openapi.Schema(type=openapi.TYPE_STRING),
                 'seat_owners': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Items(type=openapi.TYPE_OBJECT))
             },
-            required=['seat_owners', 'match', 'seat_type', 'seat_position', 'seat_row', 'seat_numbers']
+            required=['mobile', 'seat_owners', 'match', 'seat_type', 'seat_position', 'seat_row', 'seat_numbers']
         )
     )
     @action(detail=False, methods=['post'])
@@ -626,6 +648,7 @@ class ticket_view(viewsets.ViewSet):
 
 
         request_data = json.loads(request.body)
+        mobile = request_data.get('mobile')
         seat_owners = request_data.get('seat_owners')
         match_id = request_data.get('match')
         seat_type = request_data.get('seat_type')
@@ -635,6 +658,7 @@ class ticket_view(viewsets.ViewSet):
 
         
         match_obj = Match.objects.get(id=match_id)
+        capacity_obj = Capacity.objects.get(id=match_id)
         stadium_obj = Stadium.objects.get(id=match_id)
 
         successful_tickets = []
@@ -646,8 +670,9 @@ class ticket_view(viewsets.ViewSet):
             
             if check_order_history(seat_owner["national_id"], match_id) and check_seat_availibility(ticket_id):
                 
-                match_obj.sell_ticket(match_id, seat_type)
+                capacity_obj.sell_ticket(match_id, seat_type)
                 ticket_instance = Ticket.objects.create(
+                    mobile=mobile,
                     seat_owner=seat_owner["national_id"],
                     match=match_obj,
                     stadium_name=stadium_obj,
@@ -685,6 +710,7 @@ class ticket_view(viewsets.ViewSet):
 
 # sample json
 # {
+#   "mobile": "09374848660",
 #   "match": 1,
 #   "seat_type": "host",
 #   "seat_position": "12",

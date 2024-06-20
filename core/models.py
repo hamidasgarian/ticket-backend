@@ -100,6 +100,7 @@ class Stadium(models.Model):
         
     
 class Ticket(models.Model):
+    mobile = models.CharField(max_length=11, null=True, blank=True)
     seat_owner = models.CharField(max_length=50, null=True, blank=True)
     match = models.ForeignKey(Match, on_delete=models.CASCADE, db_column='match')
     stadium_name = models.ForeignKey(Stadium, on_delete=models.CASCADE, db_column='stadium_name')
@@ -116,7 +117,10 @@ class Ticket(models.Model):
 
     def __str__(self):
         return f"Ticket for {self.seat_owner} to {self.stadium_name} on {self.buy_date}"
-
+    
+    @classmethod
+    def get_by_mobile(cls, mobile):
+        return cls.objects.filter(mobile=mobile)
 
 
     

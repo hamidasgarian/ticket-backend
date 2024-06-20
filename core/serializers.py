@@ -93,6 +93,22 @@ def stadium(data):
         print(errors)
         return errors
     
+class CapacitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Capacity
+        fields = '__all__'
+
+def capacity(data):
+    serializer = CapacitySerializer(data=data)
+
+    if serializer.is_valid():
+        stadium_instance = serializer.save()
+        return stadium_instance
+    else:
+        errors = serializer.errors
+        print(errors)
+        return errors
+    
 class TicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ticket
