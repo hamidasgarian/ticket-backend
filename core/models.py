@@ -43,6 +43,7 @@ class Team(models.Model):
 
     def __str__(self):
         return self.team_name
+    
 
 class Match(models.Model):
     match_name = models.CharField(max_length=50, blank=False)
@@ -51,33 +52,37 @@ class Match(models.Model):
     match_time = models.TimeField(null=True, blank=False)
     host_team = models.ForeignKey(Team, on_delete=models.CASCADE,  related_name='host_team', db_column='host_team')
     guest_team = models.ForeignKey(Team, on_delete=models.CASCADE,  related_name='guest_team', db_column='guest_team')
-    all_available_seats = models.PositiveIntegerField(default=10000)
-    all_available_host_seats = models.PositiveIntegerField(default=7000)
-    all_available_guest_seats = models.PositiveIntegerField(default=3000)
 
     def __str__(self):
         return self.match_number
+    
+class Capacity(models.Model):
+    all_available_seats = models.PositiveIntegerField(default=10000)
+    all_available_host_seats = models.PositiveIntegerField(default=7000)
+    all_available_guest_seats = models.PositiveIntegerField(default=3000)
+    match = models.ForeignKey(Match, on_delete=models.CASCADE, db_column='match')
+
     def get_all_available_seats(self, match_id):
         # Filter based on match_id
-        match = Match.objects.get(match_id=match_id)
-        return match.all_available_host_seats + match.all_available_guest_seats
+        capacity = Capacity.objects.get(match_id=match_id)
+        return capacity.all_available_host_seats + capacity.all_available_guest_seats
 
     def sell_ticket(self, match_id, seat_type):
         # Filter based on match_id
-        match = Match.objects.get(match_id=match_id)
+        capacity = Capacity.objects.get(match_id=match_id)
         
         if seat_type == 'host':
-            if match.all_available_host_seats > 0:
-                match.all_available_host_seats -= 1
-                match.all_available_seats -= 1
-                match.save()
+            if capacity.all_available_host_seats > 0:
+                capacity.all_available_host_seats -= 1
+                capacity.all_available_seats -= 1
+                capacity.save()
             else:
                 raise ValueError("No available host seats.")
         elif seat_type == 'guest':
-            if match.all_available_guest_seats > 0:
-                match.all_available_guest_seats -= 1
-                match.all_available_seats -= 1
-                match.save()
+            if capacity.all_available_guest_seats > 0:
+                capacity.all_available_guest_seats -= 1
+                capacity.all_available_seats -= 1
+                capacity.save()
             else:
                 raise ValueError("No available guest seats.")
         else:

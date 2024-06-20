@@ -346,6 +346,27 @@ class stadium_view(viewsets.ModelViewSet):
             return JsonResponse({'ERROR': err[0]}, status=err[1])
 
 
+class capacity_view(viewsets.ModelViewSet):
+
+    queryset = Capacity.objects.all()
+
+    @action(detail=False, methods=['get'], url_path='stadium-capacity/(?P<match_id>[^/.]+)')
+    def stadium_capacity(self, request, match_id=None):
+        try:
+            capacity = Capacity.objects.get(match__id=match_id)
+            data = {
+                'all_available_seats': capacity.all_available_seats,
+                'all_available_host_seats': capacity.all_available_host_seats,
+                'all_available_guest_seats': capacity.all_available_guest_seats
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        except capacity.DoesNotExist:
+            return Response({'error': 'capacity not found for the given match ID'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+
+
 class match_view(viewsets.ModelViewSet):
 
     queryset = Match.objects.all()
@@ -354,20 +375,7 @@ class match_view(viewsets.ModelViewSet):
     # pagination_class = CustomPagination
     # permission_classes = [permissions.IsAuthenticated, SisaAdmin]
 
-    @action(detail=False, methods=['get'], url_path='stadium-capacity/(?P<match_id>[^/.]+)')
-    def stadium_capacity(self, request, match_id=None):
-        try:
-            match = Match.objects.get(match__id=match_id)
-            data = {
-                'all_available_seats': match.all_available_seats,
-                'all_available_host_seats': match.all_available_host_seats,
-                'all_available_guest_seats': match.all_available_guest_seats
-            }
-            return Response(data, status=status.HTTP_200_OK)
-        except match.DoesNotExist:
-            return Response({'error': 'match not found for the given match ID'}, status=status.HTTP_404_NOT_FOUND)
-
-
+    
     def list(self, request, *args, **kwargs):
         try:
             return super().list(request, *args, **kwargs)
