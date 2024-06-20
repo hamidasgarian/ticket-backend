@@ -569,9 +569,9 @@ class tools(viewsets.ViewSet):
         user_id = request_data.get('mobile')
         cached_code = cache.get(f'verification_code_{user_id}')
         if cached_code and cached_code == input_code:
-            return HttpResponse('Code verified successfully.')
+            return HttpResponse('Code verified successfully.', status=200)
         else:
-            return HttpResponse('Invalid or expired code.')
+            return HttpResponse('Invalid or expired code.', status=401)
 
             
 
@@ -615,7 +615,7 @@ class ticket_view(viewsets.ViewSet):
     )
     @action(detail=False, methods=['post'])
     @csrf_exempt
-    def get_tickets_by_mobile(self, request):
+    def user_order_history(self, request):
 
 
         request_data = json.loads(request.body)
@@ -624,6 +624,33 @@ class ticket_view(viewsets.ViewSet):
         serializer = TicketSerializer(tickets, many=True)
         # tickets_data = list(tickets.values('id', 'mobile', 'seat_owner', 'match_id'))  # Customize the fields you want to return
         return JsonResponse(serializer.data, safe=False)
+    
+    @swagger_auto_schema(
+        method='post',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+        
+                'match_id': openapi.Schema(type=openapi.TYPE_STRING)
+            },
+            required=['match_id']
+        )
+    )
+    @action(detail=False, methods=['post'])
+    @csrf_exempt
+    def get_unavailable_seats(self, request):
+
+
+        request_data = json.loads(request.body)
+        match_id = request_data.get('match_id')
+        seats = Ticket.get_unavailable_seats_by_match(match_id)
+        seats_list = list(seats)
+        # serializer = TicketSerializer(tickets, many=True)
+        # tickets_data = list(tickets.values('id', 'mobile', 'seat_owner', 'match_id'))  # Customize the fields you want to return
+        return JsonResponse(seats_list, safe=False)
+    
+
+    
 
 
     @swagger_auto_schema(

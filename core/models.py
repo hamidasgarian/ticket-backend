@@ -121,6 +121,10 @@ class Ticket(models.Model):
     @classmethod
     def get_by_mobile(cls, mobile):
         return cls.objects.filter(mobile=mobile)
+    
+    @classmethod
+    def get_unavailable_seats_by_match(cls, match_id):
+        return cls.objects.filter(seat_availibility=False, match_id=match_id).values_list('seat_number', flat=True)
 
 
     
