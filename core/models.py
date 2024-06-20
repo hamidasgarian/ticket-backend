@@ -47,50 +47,51 @@ class Team(models.Model):
 class Match(models.Model):
     match_name = models.CharField(max_length=50, blank=False)
     match_number = models.CharField(max_length=10,blank=True,null=True)
-    match_date = models.DateTimeField(null=True, blank=False)
+    match_date = models.DateField(null=True, blank=False)
     match_time = models.TimeField(null=True, blank=False)
     host_team = models.ForeignKey(Team, on_delete=models.CASCADE,  related_name='host_team', db_column='host_team')
     guest_team = models.ForeignKey(Team, on_delete=models.CASCADE,  related_name='guest_team', db_column='guest_team')
-    
-    def __str__(self):
-        return self.match_number
-
-
-class Stadium(models.Model):
-    stadium_name = models.CharField(max_length=50, blank=False)
     all_available_seats = models.PositiveIntegerField(default=10000)
     all_available_host_seats = models.PositiveIntegerField(default=7000)
     all_available_guest_seats = models.PositiveIntegerField(default=3000)
-    match = models.ForeignKey(Match, on_delete=models.CASCADE, db_column='match')
 
     def __str__(self):
-        return self.stadium_name
-    
+        return self.match_number
     def get_all_available_seats(self, match_id):
         # Filter based on match_id
-        stadium = Stadium.objects.get(match_id=match_id)
-        return stadium.all_available_host_seats + stadium.all_available_guest_seats
+        match = Match.objects.get(match_id=match_id)
+        return match.all_available_host_seats + match.all_available_guest_seats
 
     def sell_ticket(self, match_id, seat_type):
         # Filter based on match_id
-        stadium = Stadium.objects.get(match_id=match_id)
+        match = Match.objects.get(match_id=match_id)
         
         if seat_type == 'host':
-            if stadium.all_available_host_seats > 0:
-                stadium.all_available_host_seats -= 1
-                stadium.all_available_seats -= 1
-                stadium.save()
+            if match.all_available_host_seats > 0:
+                match.all_available_host_seats -= 1
+                match.all_available_seats -= 1
+                match.save()
             else:
                 raise ValueError("No available host seats.")
         elif seat_type == 'guest':
-            if stadium.all_available_guest_seats > 0:
-                stadium.all_available_guest_seats -= 1
-                stadium.all_available_seats -= 1
-                stadium.save()
+            if match.all_available_guest_seats > 0:
+                match.all_available_guest_seats -= 1
+                match.all_available_seats -= 1
+                match.save()
             else:
                 raise ValueError("No available guest seats.")
         else:
             raise ValueError("Invalid seat type.")
+    
+
+
+class Stadium(models.Model):
+    stadium_name = models.CharField(max_length=50, blank=False)
+    
+
+    def __str__(self):
+        return self.stadium_name
+    
         
     
 class Ticket(models.Model):

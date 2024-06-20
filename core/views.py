@@ -297,19 +297,7 @@ class stadium_view(viewsets.ModelViewSet):
     # pagination_class = CustomPagination
     # permission_classes = [permissions.IsAuthenticated, SisaAdmin]
 
-    @action(detail=False, methods=['get'], url_path='stadium-capacity/(?P<match_id>[^/.]+)')
-    def stadium_capacity(self, request, match_id=None):
-        try:
-            stadium = Stadium.objects.get(match__id=match_id)
-            data = {
-                'all_available_seats': stadium.all_available_seats,
-                'all_available_host_seats': stadium.all_available_host_seats,
-                'all_available_guest_seats': stadium.all_available_guest_seats
-            }
-            return Response(data, status=status.HTTP_200_OK)
-        except Stadium.DoesNotExist:
-            return Response({'error': 'Stadium not found for the given match ID'}, status=status.HTTP_404_NOT_FOUND)
-
+    
     def list(self, request, *args, **kwargs):
         try:
             return super().list(request, *args, **kwargs)
@@ -365,6 +353,20 @@ class match_view(viewsets.ModelViewSet):
     # renderer_classes = [CustomOpenAPIRenderer]
     # pagination_class = CustomPagination
     # permission_classes = [permissions.IsAuthenticated, SisaAdmin]
+
+    @action(detail=False, methods=['get'], url_path='stadium-capacity/(?P<match_id>[^/.]+)')
+    def stadium_capacity(self, request, match_id=None):
+        try:
+            match = Match.objects.get(match__id=match_id)
+            data = {
+                'all_available_seats': match.all_available_seats,
+                'all_available_host_seats': match.all_available_host_seats,
+                'all_available_guest_seats': match.all_available_guest_seats
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        except match.DoesNotExist:
+            return Response({'error': 'match not found for the given match ID'}, status=status.HTTP_404_NOT_FOUND)
+
 
     def list(self, request, *args, **kwargs):
         try:
@@ -631,12 +633,12 @@ class ticket_view(viewsets.ViewSet):
         errors = []
 
         for seat_owner in seat_owners:
-            ticket_id = f"{seat_owner["national_id"]}_{match_obj.match_number}_{seat_position}_{seat_row}_{seat_owner["seat_number"]}"
+            ticket_id = f"{seat_owner['national_id']}_{match_obj.match_number}_{seat_position}_{seat_row}_{seat_owner['seat_number']}"
             qr_code_id = f"qr_{ticket_id}"  
             
             if check_order_history(seat_owner["national_id"], match_id) and check_seat_availibility(ticket_id):
                 
-                stadium_obj.sell_ticket(match_id, seat_type)
+                match_obj.sell_ticket(match_id, seat_type)
                 ticket_instance = Ticket.objects.create(
                     seat_owner=seat_owner["national_id"],
                     match=match_obj,
