@@ -57,7 +57,7 @@ class Capacity(models.Model):
 
     def sell_ticket(self, match_id, seat_type):
         # Filter based on match_id
-        capacity = Capacity.objects.get(match_id=match_id)
+        capacity = Capacity.objects.get(id=match_id)
         
         if seat_type == 'host':
             if capacity.all_available_host_seats > 0:
@@ -106,7 +106,8 @@ class Ticket(models.Model):
     mobile = models.CharField(max_length=11, null=True, blank=True)
     seat_owner = models.CharField(max_length=50, null=True, blank=True)
     match = models.ForeignKey(Match, on_delete=models.CASCADE, db_column='match')
-    stadium_name = models.ForeignKey(Stadium, on_delete=models.CASCADE, db_column='stadium_name')
+    stadium_name = models.CharField(max_length=11, null=True, blank=True)
+    # stadium_name = models.ForeignKey(Stadium, on_delete=models.CASCADE, db_column='stadium_name')
     seat_type = models.CharField(max_length=6, blank=False)
     seat_position = models.CharField(max_length=6, blank=False)
     seat_row = models.CharField(max_length=6, blank=False)

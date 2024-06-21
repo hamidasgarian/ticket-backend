@@ -356,7 +356,7 @@ class capacity_view(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='stadium-capacity/(?P<match_id>[^/.]+)')
     def stadium_capacity(self, request, match_id=None):
         try:
-            capacity = Capacity.objects.get(match__id=match_id)
+            capacity = Capacity.objects.get(id=match_id)
             data = {
                 'all_available_seats': capacity.all_available_seats,
                 'all_available_host_seats': capacity.all_available_host_seats,
