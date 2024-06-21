@@ -44,23 +44,11 @@ class Team(models.Model):
     def __str__(self):
         return self.team_name
     
-
-class Match(models.Model):
-    match_name = models.CharField(max_length=50, blank=False)
-    match_number = models.CharField(max_length=10,blank=True,null=True)
-    match_date = models.DateField(null=True, blank=False)
-    match_time = models.TimeField(null=True, blank=False)
-    host_team = models.ForeignKey(Team, on_delete=models.CASCADE,  related_name='host_team', db_column='host_team')
-    guest_team = models.ForeignKey(Team, on_delete=models.CASCADE,  related_name='guest_team', db_column='guest_team')
-
-    def __str__(self):
-        return self.match_number
-    
 class Capacity(models.Model):
     all_available_seats = models.PositiveIntegerField(default=10000)
     all_available_host_seats = models.PositiveIntegerField(default=7000)
     all_available_guest_seats = models.PositiveIntegerField(default=3000)
-    match = models.ForeignKey(Match, on_delete=models.CASCADE, db_column='match')
+    
 
     def get_all_available_seats(self, match_id):
         # Filter based on match_id
@@ -87,6 +75,21 @@ class Capacity(models.Model):
                 raise ValueError("No available guest seats.")
         else:
             raise ValueError("Invalid seat type.")
+
+
+
+class Match(models.Model):
+    match_name = models.CharField(max_length=50, blank=False)
+    match_number = models.CharField(max_length=10,blank=True,null=True)
+    match_date = models.DateField(null=True, blank=False)
+    match_time = models.TimeField(null=True, blank=False)
+    host_team = models.ForeignKey(Team, on_delete=models.CASCADE,  related_name='host_team', db_column='host_team')
+    guest_team = models.ForeignKey(Team, on_delete=models.CASCADE,  related_name='guest_team', db_column='guest_team')
+    capacity = models.ForeignKey(Capacity, on_delete=models.CASCADE, db_column='capacity')
+
+    def __str__(self):
+        return self.match_number
+    
     
 
 
@@ -109,9 +112,10 @@ class Ticket(models.Model):
     seat_row = models.CharField(max_length=6, blank=False)
     seat_number = models.CharField(max_length=6, blank=False)
     buy_date = models.DateField(auto_now_add=True)
-    qr_code = models.ImageField(upload_to='qr_codes/', blank=True,null=True)
-    qr_code_id = models.CharField(max_length=100,blank=True,null=True)
+    # qr_code = models.ImageField(upload_to='qr_codes/', blank=True,null=True)
+    # qr_code_id = models.CharField(max_length=100,blank=True,null=True)
     seat_availibility = models.BooleanField(default=True, blank=False)
+    ticket_used = models.BooleanField(default=False, blank=False)
     ticket_id = models.CharField(max_length=70,blank=False,null=False)
     seat_costs = models.IntegerField()
 

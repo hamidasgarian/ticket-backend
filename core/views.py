@@ -34,6 +34,8 @@ from core.melipayamak import Api
 
 
 
+app_version = "v1"
+stadium_match = {"v1": "نقش جهان", "v2": "یادگار امام", "v3": "فولاد آرنا"}
 
 def generate_code():
     return str(random.randint(10000, 99999))
@@ -686,14 +688,13 @@ class ticket_view(viewsets.ViewSet):
         
         match_obj = Match.objects.get(id=match_id)
         capacity_obj = Capacity.objects.get(id=match_id)
-        stadium_obj = Stadium.objects.get(id=match_id)
 
         successful_tickets = []
         errors = []
 
         for seat_owner in seat_owners:
             ticket_id = f"{seat_owner['national_id']}_{match_obj.match_number}_{seat_position}_{seat_row}_{seat_owner['seat_number']}"
-            qr_code_id = f"qr_{ticket_id}"  
+            # qr_code_id = f"qr_{ticket_id}"  
             
             if check_order_history(seat_owner["national_id"], match_id) and check_seat_availibility(ticket_id):
                 
@@ -702,11 +703,10 @@ class ticket_view(viewsets.ViewSet):
                     mobile=mobile,
                     seat_owner=seat_owner["national_id"],
                     match=match_obj,
-                    stadium_name=stadium_obj,
+                    stadium_name=stadium_match[app_version],
                     seat_row=seat_row,
                     seat_position=seat_position,
                     seat_number=seat_owner["seat_number"],
-                    qr_code_id=qr_code_id,
                     seat_type=seat_type,
                     seat_costs=150000,
                     seat_availibility=False,
@@ -714,15 +714,15 @@ class ticket_view(viewsets.ViewSet):
 
                 )
 
-                qr = qrcode.QRCode(version=1,error_correction=qrcode.constants.ERROR_CORRECT_L,box_size=10,border=4,)
-                qr.add_data(qr_code_id)
-                qr.make(fit=True)
+                # qr = qrcode.QRCode(version=1,error_correction=qrcode.constants.ERROR_CORRECT_L,box_size=10,border=4,)
+                # qr.add_data(qr_code_id)
+                # qr.make(fit=True)
 
-                img = qr.make_image(fill_color="black", back_color="white")
-                buffer = BytesIO()
-                img.save(buffer, format="PNG")
-                img_name = f'{qr_code_id}.png'
-                ticket_instance.qr_code.save(img_name, ContentFile(buffer.getvalue()), save=True)
+                # img = qr.make_image(fill_color="black", back_color="white")
+                # buffer = BytesIO()
+                # img.save(buffer, format="PNG")
+                # img_name = f'{qr_code_id}.png'
+                # ticket_instance.qr_code.save(img_name, ContentFile(buffer.getvalue()), save=True)
 
                 successful_tickets.append(ticket_id)
 
