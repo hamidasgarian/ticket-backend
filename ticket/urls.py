@@ -1,4 +1,4 @@
-
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
@@ -31,4 +31,4 @@ urlpatterns = [
     path('api/v1/', include('core.urls')),
     path('team/logo/<int:team_id>/', serve_logo, name='serve_logo'),
     path('slider/<str:filename>/', serve_slider, name='serve_slider'), 
-]
+]  + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,11 +1,6 @@
 from rest_framework import serializers
 from .models import *
-import qrcode
-from io import BytesIO
 from django.core.files import File
-
-
-
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -125,62 +120,3 @@ def create_ticket(data):
         print(errors)
         return None
 
-
-# class TicketSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Ticket
-#         fields = '__all__'
-
-        
-# class TicketSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Ticket
-#         fields = '__all__'
-#         read_only_fields = ('qr_code_id', 'qr_code', 'ticket_id')
-
-#     def save(self, *args, **kwargs):
-#         stadium_name = self.validated_data.get('stadium_name')
-#         stadium_row = self.validated_data.get('stadium_row')
-#         stadium_position = self.validated_data.get('stadium_position')
-#         stadium_seat = self.validated_data.get('stadium_seat')
-#         national_id = self.validated_data.get('user')
-#         # match_id = self.validated_data.get('match')
-#         match = self.validated_data.get('match')
-#         user = self.validated_data.get('user')
-#         match_id = match.match_id
-#         national_id = user.national_id
-        
-#         ticket_id = f"{national_id}_{match_id}_{stadium_name}_{stadium_row}_{stadium_position}_{stadium_seat}"
-    
-#         self.validated_data['ticket_id'] = ticket_id
-
-        
-
-        
-
-#         instance = super().save(*args, **kwargs)
-
-#         qr_code_id = f"qr_{instance.pk}"
-#         instance.qr_code_id = qr_code_id
-
-#         qr_data = f"{qr_code_id}"
-#         qr = qrcode.QRCode(
-#             version=1,
-#             error_correction=qrcode.constants.ERROR_CORRECT_L,
-#             box_size=10,
-#             border=4,
-#         )
-#         qr.add_data(qr_data)
-#         qr.make(fit=True)
-
-#         img = qr.make_image(fill='black', back_color='white')
-
-#         buffer = BytesIO()
-#         img.save(buffer, format="PNG")
-#         img_name = f'qr_code_{instance.pk}.png'
-
-#         instance.qr_code.save(img_name, File(buffer), save=False)
-
-#         instance.save()
-
-#         return instance

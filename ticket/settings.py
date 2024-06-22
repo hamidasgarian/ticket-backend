@@ -7,6 +7,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+TICKET_URL = os.getenv('TICKET_URL')
 
 SMS_PANEL_USENAME = os.getenv('SMS-PANEL-USERNAME')
 SMS_PANEL_PASSWORD = os.getenv('SMS-PANEL-PASSWORD')
