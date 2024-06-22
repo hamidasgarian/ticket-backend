@@ -3,6 +3,28 @@ import inspect
 import os
 import requests
 import random
+import uuid
+import threading
+import time
+
+import qrcode
+from qrcode.image.styledpil import StyledPilImage
+from qrcode.image.styles.moduledrawers.pil import GappedSquareModuleDrawer
+from qrcode.image.styles.colormasks import RadialGradiantColorMask
+
+from io import BytesIO
+from PIL import Image
+
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.units import cm
+
+
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponse
@@ -672,6 +694,91 @@ class ticket_view(viewsets.ViewSet):
             return Response({'message': 'successful', 'tickets': successful_tickets}, status=status.HTTP_201_CREATED)
         else:
             return Response({"detail": "Seat or match already booked for all entries.", "errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @swagger_auto_schema(
+        method='post',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'ticket_id': openapi.Schema(type=openapi.TYPE_STRING)
+            },
+            required=['ticket_id']
+        )
+    )
+    @action(detail=False, methods=['post'])
+    @csrf_exempt
+    def generate_ticket_file(self, request):
+        request_data = json.loads(request.body)
+        ticket_id = request_data.get('ticket_id')
+
+        try:
+            ticket = Ticket.objects.get(id=ticket_id)
+        except Ticket.DoesNotExist:
+            return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        real_ticket_id = ticket.ticket_id
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(real_ticket_id)
+        qr.make(fit=True)
+
+        img = qr.make_image(image_factory=StyledPilImage, module_drawer=GappedSquareModuleDrawer(), color_mask=RadialGradiantColorMask(back_color=(255,255,255), edge_color=(253,200,0), center_color=(0,0,0)))
+
+        logo_display = Image.open("static/سپاهان_logo.png")
+        logo_display = logo_display.resize((60, 60), Image.LANCZOS)
+
+        pos = (
+            (img.size[0] - logo_display.size[0]) // 2,
+            (img.size[1] - logo_display.size[1]) // 2
+        )
+        img.paste(logo_display, pos, logo_display)
+
+        pdf_path = os.path.join(settings.MEDIA_ROOT, 'tickets')
+        os.makedirs(pdf_path, exist_ok=True)
+        filename = f"{uuid.uuid4()}.pdf"
+        full_path = os.path.join(pdf_path, filename)
+
+        content_width = 200  # Width of QR code image
+        content_height = 300  # Estimated height needed for text
+        margin = 2 * cm
+        page_width = content_width + 2 * margin
+        page_height = content_height + 2 * margin
+
+        pdf = canvas.Canvas(full_path, pagesize=(page_width, page_height))
+        width, height = page_width, page_height
+
+        img_buffer = BytesIO()
+        img.save(img_buffer, format='PNG')
+        img_buffer.seek(0)
+
+        pdfmetrics.registerFont(TTFont('Persian', 'static/Vazir.ttf'))
+        pdf.setFont("Persian", 12)
+
+        tag = get_display(arabic_reshaper.reshape(f"سامانه آنلاین فروش بلیط باشگاه سپاهان"))
+        match_name = get_display(arabic_reshaper.reshape(f"                 {ticket.match.match_name}"))
+        match_time = get_display(arabic_reshaper.reshape(f"تاریخ : {ticket.match.match_date}     ساعت : {ticket.match.match_time} "))
+        seat_owner = get_display(arabic_reshaper.reshape(f"کدملی : {ticket.seat_owner}"))
+        seat_type_and_position = get_display(arabic_reshaper.reshape(f"جایگاه : {ticket.seat_type}                      سکو: {ticket.seat_position}"))
+        seat_row_and_number = get_display(arabic_reshaper.reshape(f"ردیف : {ticket.seat_row}                          صندلی: {ticket.seat_number}"))
+
+        pdf.drawRightString(width - margin, height - content_width - 25 , tag)
+        pdf.drawImage(ImageReader(img_buffer), x=(width - content_width) / 2, y=content_height - 100, width=content_width, height=content_width)
+        pdf.drawRightString(width - margin, height - content_width - margin - 10, match_name)
+        pdf.drawRightString(width - margin, height - content_width - margin - 35, match_time)
+        pdf.drawRightString(width - margin, height - content_width - margin - 65, seat_owner)
+        pdf.drawRightString(width - margin, height - content_width - margin - 90, seat_type_and_position)
+        pdf.drawRightString(width - margin, height - content_width - margin - 110, seat_row_and_number)
+
+        pdf.showPage()
+        pdf.save()
+
+        download_link = request.build_absolute_uri(settings.MEDIA_URL + 'tickets/' + filename)
+        return Response({'download_link': download_link}, status=status.HTTP_201_CREATED)        
 
 
 # sample json
