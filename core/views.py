@@ -374,6 +374,29 @@ class capacity_view(viewsets.ModelViewSet):
     queryset = Capacity.objects.all()
     serializer_class = CapacitySerializer
 
+    @action(detail=False, methods=['get'], url_path='seat_costs_per_match/(?P<match_id>[^/.]+)/(?P<seat_position>[^/.]+)')
+    def seat_costs_per_match(self, request, match_id=None, seat_position=None):
+        try:
+            capacity = Capacity.objects.get(id=match_id)
+            stadium = Stadium.objects.get(id=app_version)
+            seat_position = int(seat_position)
+
+            if seat_position in stadium.stadium_seat_category1:
+                category = "category1"
+            if seat_position in stadium.stadium_seat_category2:
+                category = "category2"
+            if seat_position in stadium.stadium_seat_category3:
+                category = "category3"
+            if seat_position in stadium.stadium_seat_category4:
+                category = "category4"
+
+            data = {
+                'seat_costs_per_position': capacity.seat_costs_per_position[category]
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        except capacity.DoesNotExist:
+            return Response({'error': 'capacity not found for the given match ID'}, status=status.HTTP_404_NOT_FOUND)
+
     @action(detail=False, methods=['get'], url_path='stadium-capacity/(?P<match_id>[^/.]+)')
     def stadium_capacity(self, request, match_id=None):
         try:
@@ -553,6 +576,25 @@ class ticket_view(viewsets.ViewSet):
     queryset = Ticket.objects.all()
     serializer_class = TicketSerializer
     # permission_classes = [permissions.IsAuthenticated]
+
+    
+    @action(detail=False, methods=['get'], url_path='ticket_count_per_match')
+    @csrf_exempt
+    def ticket_count_per_match(self, request):
+        try:
+            
+            matches = Match.objects.all()
+
+            ticket_count_per_match = {
+                match.match_name: Ticket.objects.filter(match_id=match.id).count()
+                for match in matches
+            }
+
+
+            return JsonResponse(ticket_count_per_match, status=status.HTTP_200_OK)
+        except Ticket.DoesNotExist:
+            return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+
 
     @action(detail=True, methods=['GET'])
     @csrf_exempt

@@ -59,6 +59,8 @@ class Capacity(models.Model):
     available_seats_per_position_host = models.JSONField(default=list)
     available_seats_per_position_guest = models.JSONField(default=list)
 
+    seat_costs_per_position = models.JSONField(default=dict)
+
     def save(self, *args, **kwargs):
         if not self.pk:  
             self.available_seats_per_position_host = [self.rows_per_position * self.seats_per_row] * self.number_of_host_positions
@@ -139,6 +141,11 @@ class Stadium(models.Model):
     stadium_rows_in_host_positions = models.JSONField(default=list)
     stadium_rows_in_guest_positions = models.JSONField(default=list)
     stadium_seats = models.JSONField(default=list)
+
+    stadium_seat_category1 = models.JSONField(default=list)
+    stadium_seat_category2 = models.JSONField(default=list)
+    stadium_seat_category3 = models.JSONField(default=list)
+    stadium_seat_category4 = models.JSONField(default=list)
 
     def __str__(self):
         return self.stadium_name
