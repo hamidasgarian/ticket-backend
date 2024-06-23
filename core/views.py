@@ -41,6 +41,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.schemas.generators import BaseSchemaGenerator
 from rest_framework import viewsets, permissions
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 from drf_yasg import openapi
@@ -50,6 +51,8 @@ from drf_yasg.inspectors import SwaggerAutoSchema
 
 from .serializers import *
 from .models import Ticket as TicketModel
+from .pagination import *
+
 from ticket import settings
 
 from core.melipayamak import Api
@@ -565,7 +568,13 @@ class tools(viewsets.ViewSet):
         user_id = request_data.get('mobile')
         cached_code = cache.get(f'verification_code_{user_id}')
         if cached_code and cached_code == input_code:
-            return HttpResponse('Code verified successfully.', status=200)
+            refresh = RefreshToken.for_user(user_id)  
+            refresh['mobile'] = user_id  
+        
+            return JsonResponse({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }, status=200)
         else:
             return HttpResponse('Invalid or expired code.', status=401)
 
@@ -575,6 +584,7 @@ class tools(viewsets.ViewSet):
 class ticket_view(viewsets.ViewSet):
     queryset = Ticket.objects.all()
     serializer_class = TicketSerializer
+    # pagination_class = CustomPagination
     # permission_classes = [permissions.IsAuthenticated]
 
     
@@ -594,7 +604,48 @@ class ticket_view(viewsets.ViewSet):
             return JsonResponse(ticket_count_per_match, status=status.HTTP_200_OK)
         except Ticket.DoesNotExist:
             return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+    
+    
+    @action(detail=False, methods=['get'], url_path='ticket_count_per_match_detail')
+    @csrf_exempt
+    def ticket_count_per_match_detail(self, request):
+        try:
+            
+            matches = Match.objects.all()
 
+            ticket_count_per_match = {
+                match.match_name: list(Ticket.objects.filter(match_id=match.id).values_list('ticket_id', flat=True))
+                for match in matches
+            }
+
+
+            return JsonResponse(ticket_count_per_match, status=status.HTTP_200_OK)
+        except Ticket.DoesNotExist:
+            return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+
+    @action(detail=False, methods=['get'])
+    @csrf_exempt
+    def ticket_costs(self, request):
+        try:
+            
+            stadium = Stadium.objects.get(id=app_version)
+            cost = Capacity.objects.get(id=app_version)
+            ticket_costs = {
+                tuple(stadium.stadium_seat_category1): cost.seat_costs_per_position["category1"],
+                tuple(stadium.stadium_seat_category2): cost.seat_costs_per_position["category2"],
+                tuple(stadium.stadium_seat_category3): cost.seat_costs_per_position["category3"],
+                tuple(stadium.stadium_seat_category4): cost.seat_costs_per_position["category4"]
+            }
+            ticket_costs_json = [{"seat_position": list(k), "seat_cost": v} for k, v in ticket_costs.items()]
+
+
+            return JsonResponse(ticket_costs_json, status=status.HTTP_200_OK, safe=False)
+        except Ticket.DoesNotExist:
+            return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+    
 
     @action(detail=True, methods=['GET'])
     @csrf_exempt
@@ -822,6 +873,43 @@ class ticket_view(viewsets.ViewSet):
         download_link = request.build_absolute_uri(settings.MEDIA_URL + 'tickets/' + filename)
         return Response({'download_link': download_link}, status=status.HTTP_201_CREATED)        
 
+
+
+    @swagger_auto_schema(
+        method='post',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+        
+                'ticket_id': openapi.Schema(type=openapi.TYPE_STRING)
+            },
+            required=['ticket_id']
+        )
+    )
+    @action(detail=False, methods=['post'])
+    @csrf_exempt
+    def verify_ticket(self, request):
+        
+        try:
+            request_data = json.loads(request.body)
+            ticket_id = request_data.get('ticket_id')
+            try:
+                ticket = Ticket.objects.get(ticket_id=ticket_id)
+            except Ticket.DoesNotExist:
+                return JsonResponse({"detail": "Ticket is fake."}, status=status.HTTP_404_NOT_FOUND)
+            
+
+            if ticket.ticket_used == 0:
+                ticket.ticket_used = 1
+                ticket.save()
+                return JsonResponse({"detail": "Ticket is verified."}, status=status.HTTP_200_OK)
+            else:
+                return JsonResponse({"detail": "Ticket not verified."}, status=status.HTTP_401_UNAUTHORIZED)
+            
+        except Exception as e:
+            return JsonResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        
 
 # sample json
 # {

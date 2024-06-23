@@ -16,6 +16,8 @@ SMS_PANEL_PASSWORD = os.getenv('SMS-PANEL-PASSWORD')
 SMS_PANEL_PHONE_NUMBER = os.getenv('SMS-PANEL-PHONE-NUMBER')
 SECRET_KEY = os.getenv('SECRET_KEY','django-insecure-fick$=^bmaed2d5svqa022fv0-4p@3bwy#oy0l2gs4y&959lpl')
 
+
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
@@ -32,6 +34,7 @@ SIMPLE_JWT = {
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
     'TOKEN_TYPE_CLAIM': 'token_type',
     'JTI_CLAIM': 'jti',
+   
 }
 
 
