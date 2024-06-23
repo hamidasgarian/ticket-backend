@@ -6,6 +6,17 @@ from django.core.files import File
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 
+
+def validate_iranian_national_id(value):
+    if len(value) != 10 or not value.isdigit():
+        raise ValidationError('National ID must be a 10-digit number.')
+
+    check = int(value[9])
+    s = sum(int(value[x]) * (10 - x) for x in range(9)) % 11
+
+    if (s < 2 and check != s) or (s >= 2 and check != 11 - s):
+        raise ValidationError('Invalid national ID.')
+
 def generate_logo_filename(team_name):
     return f"{team_name.replace(' ', '_').lower()}_logo.png"
 
@@ -154,7 +165,7 @@ class Stadium(models.Model):
     
 class Ticket(models.Model):
     mobile = models.CharField(max_length=11, null=True, blank=True)
-    seat_owner = models.CharField(max_length=50, null=True, blank=True)
+    seat_owner = models.CharField(max_length=10, validators=[validate_iranian_national_id])
     match = models.ForeignKey(Match, on_delete=models.CASCADE, db_column='match')
     stadium = models.ForeignKey(Stadium, on_delete=models.CASCADE, db_column='capacity')
     seat_type = models.CharField(max_length=6, blank=False)
@@ -162,8 +173,6 @@ class Ticket(models.Model):
     seat_row = models.CharField(max_length=6, blank=False)
     seat_number = models.CharField(max_length=6, blank=False)
     buy_date = models.DateField(auto_now_add=True)
-    # qr_code = models.ImageField(upload_to='qr_codes/', blank=True,null=True)
-    # qr_code_id = models.CharField(max_length=100,blank=True,null=True)
     seat_availibility = models.BooleanField(default=True, blank=False)
     ticket_used = models.BooleanField(default=False, blank=False)
     ticket_id = models.CharField(max_length=70,blank=False,null=False)
