@@ -33,6 +33,8 @@ from django.core.files.base import ContentFile
 from django.http import FileResponse, Http404
 from django.conf import settings
 from django.core.cache import cache
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import DatabaseError
 
 
 from rest_framework.decorators import action
@@ -598,6 +600,32 @@ class ticket_view(viewsets.ViewSet):
     serializer_class = TicketSerializer
     # pagination_class = CustomPagination
     # permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['get'], url_path='get_sold_tickets_in_specific_row/(?P<match_id>[^/.]+)/(?P<seat_position>[^/.]+)/(?P<seat_row>[^/.]+)')
+    def get_sold_tickets_in_specific_row(self, request, match_id=None, seat_position=None, seat_row=None):
+        try:
+            tickets = Ticket.objects.filter(
+                match=match_id,
+                seat_row=seat_row,
+                seat_position=seat_position,
+                seat_availibility=False
+            )
+            if not tickets.exists():
+                raise ObjectDoesNotExist("No tickets found for the given criteria.")
+            
+            ticket_seat_numbers = [ticket.seat_number for ticket in tickets]
+            return Response(ticket_seat_numbers)
+        except ObjectDoesNotExist as e:
+            print(f"Error: {e}")
+            return Response({'error': str(e)}, status=404)
+        except DatabaseError as e:
+            print(f"Database error: {e}")
+            return Response({'error': str(e)}, status=500)
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            return Response({'error': str(e)}, status=500)
+
+
 
     @action(detail=False, methods=['get'], url_path='ticket_sold_by_match/(?P<match_id>[^/.]+)')
     def ticket_sold_by_match(self, request, match_id=None):
