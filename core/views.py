@@ -599,6 +599,28 @@ class ticket_view(viewsets.ViewSet):
     # pagination_class = CustomPagination
     # permission_classes = [permissions.IsAuthenticated]
 
+    @action(detail=False, methods=['get'], url_path='ticket_sold_by_match/(?P<match_id>[^/.]+)')
+    def ticket_sold_by_match(self, request, match_id=None):
+        try:
+            
+            match = Match.objects.get(id=match_id)
+            tickets = Ticket.objects.filter(match_id=match.id)
+
+            ticket_sold_by_match = {
+                match.match_name: list(tickets.values_list('ticket_id', flat=True))
+                
+            }
+
+
+            return JsonResponse(ticket_sold_by_match, status=status.HTTP_200_OK)
+        except Match.DoesNotExist:
+            return Response({"detail": "Match not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Ticket.DoesNotExist:
+            return Response({"detail": "Ticket not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+
     
     @action(detail=False, methods=['get'], url_path='ticket_count_per_match')
     @csrf_exempt
