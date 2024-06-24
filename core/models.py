@@ -143,6 +143,19 @@ class Match(models.Model):
     
     
 
+class Discount(models.Model):
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    national_id = models.CharField(max_length=50, validators= [validate_iranian_national_id])
+    basa_cart = models.CharField(max_length=50)
+    discount_type = models.CharField(max_length=50)
+    discount_percentage = models.IntegerField()
+
+
+class Admins(models.Model):
+    admin_group = models.CharField(max_length=50)
+    admin_phones = models.JSONField(default=list)
+
 
 class Stadium(models.Model):
     stadium_name = models.CharField(max_length=50, blank=False)

@@ -546,8 +546,6 @@ class tools(viewsets.ViewSet):
         return HttpResponse('Successfully sent the code')
 
 
-
-
     @swagger_auto_schema(
             method='post',
             request_body=openapi.Schema(
@@ -563,18 +561,32 @@ class tools(viewsets.ViewSet):
     @action(detail=False, methods=['post'])
     @csrf_exempt
     def verify_code(self, request):
+
+        def generate_jwt_token(mobile_number):
+            refresh = RefreshToken()
+            refresh['mobile'] = mobile_number
+            access_token = str(refresh.access_token)
+            return access_token
+
+
         request_data = json.loads(request.body)
         input_code = request_data.get('code')
         user_id = request_data.get('mobile')
         cached_code = cache.get(f'verification_code_{user_id}')
         if cached_code and cached_code == input_code:
-            refresh = RefreshToken.for_user(user_id)  
-            refresh['mobile'] = user_id  
-        
-            return JsonResponse({
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
-        }, status=200)
+            access_token = generate_jwt_token(user_id)
+
+            admin = Admins.objects.get(id=app_version)
+            user_is_admin = any(user_id in element for element in admin.admin_phones)
+
+            if user_is_admin:
+                access_level = "admin"
+            else:
+                access_level = "user"
+
+
+            return JsonResponse({'access_token': access_token,
+                                 'access_level': access_level}, status=200)
         else:
             return HttpResponse('Invalid or expired code.', status=401)
 
@@ -758,19 +770,25 @@ class ticket_view(viewsets.ViewSet):
         errors = []
 
         for seat_owner in seat_owners:
-            ticket_id = f"{seat_owner['national_id']}_{match_obj.match_number}_{seat_position}_{seat_row}_{seat_owner['seat_number']}"
+            national_id = seat_owner["national_id"]
+            last_two_digits = national_id[-2:]
+            hint = int(last_two_digits[0]) + int(last_two_digits[1])
+
+            seat_number = seat_owner["seat_number"]
+            ticket_id = f"{national_id}_{match_obj.match_number}_{seat_position}_{seat_row}_{seat_number}_{hint}"
             
-            if check_order_history(seat_owner["national_id"], match_id) and check_seat_availibility(ticket_id):
+            if check_order_history(national_id, match_id) and check_seat_availibility(ticket_id):
                 
                 capacity_obj.sell_ticket(match_id, int(seat_position), int(seat_row), seat_type)
+                
                 ticket_instance = Ticket.objects.create(
                     mobile=mobile,
-                    seat_owner=seat_owner["national_id"],
+                    seat_owner=national_id,
                     match=match_obj,
                     stadium=stadium_obj,
                     seat_row=seat_row,
                     seat_position=seat_position,
-                    seat_number=seat_owner["seat_number"],
+                    seat_number=seat_number,
                     seat_type=seat_type,
                     seat_costs=150000,
                     seat_availibility=False,
