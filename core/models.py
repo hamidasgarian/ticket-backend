@@ -180,7 +180,7 @@ class Ticket(models.Model):
     mobile = models.CharField(max_length=11, null=True, blank=True)
     seat_owner = models.CharField(max_length=10, validators=[validate_iranian_national_id])
     match = models.ForeignKey(Match, on_delete=models.CASCADE, db_column='match')
-    stadium = models.ForeignKey(Stadium, on_delete=models.CASCADE, db_column='capacity')
+    stadium = models.ForeignKey(Stadium, on_delete=models.CASCADE, db_column='stadium')
     seat_type = models.CharField(max_length=6, blank=False)
     seat_position = models.CharField(max_length=6, blank=False)
     seat_row = models.CharField(max_length=6, blank=False)
