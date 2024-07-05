@@ -54,95 +54,12 @@ from drf_yasg.inspectors import SwaggerAutoSchema
 from .serializers import *
 from .models import Ticket as TicketModel
 from .pagination import *
+from utils.utils import *
 
 from ticket import settings
 
-from core.melipayamak import Api
 
 
-
-app_version = 1
-
-def generate_code():
-    return str(random.randint(10000, 99999))
-
-
-def send_sms2(phone_number, verify_code):
-    username = settings.SMS_PANEL_USENAME
-    password = settings.SMS_PANEL_PASSWORD
-    provider_phone_number = settings.SMS_PANEL_PHONE_NUMBER
-    api = Api(username,password)
-    sms = api.sms()
-    to = phone_number
-    _from = provider_phone_number
-    text = verify_code
-    response = sms.send(to,_from,text)
-    print(response)
-
-
-def send_sms(to, text):
-    username = "09197705347"
-    password = "Fool@dBasa14002021"
-    url = "http://api.payamak-panel.com/post/sendsms.ashx"
-
-    payload = {
-        "username": username,
-        "password": password,
-        "to": to,
-        "from": "",  # Assuming 'from' parameter should be an empty string
-        "text": text
-    }
-
-    response = requests.post(url, data=payload)
-    
-    if response.status_code == 200:
-        print("Message sent successfully")
-    else:
-        print(f"Failed to send message. Status code: {response.status_code}, Response: {response.text}")
-
-def serve_logo(request, team_id):
-    try:
-        team = Team.objects.get(pk=team_id)
-        if team.logo_filename:
-            file_path = os.path.join(settings.BASE_DIR, 'static', team.logo_filename)
-            if os.path.exists(file_path):
-                return FileResponse(open(file_path, 'rb'), content_type='image/png')
-        raise Http404("Logo not found.")
-    except Team.DoesNotExist:
-        raise Http404("Team not found.")
-
-
-def serve_slider(request, filename):
-    file_path = os.path.join(settings.BASE_DIR, 'static', filename)
-    return FileResponse(open(file_path, 'rb'), content_type='image/png')
-    
-
-def check_order_history(seat_owner, match_id):
-    return not Ticket.objects.filter(seat_owner=seat_owner, match=match_id).exists()
-
-def check_seat_availibility(ticket_id):
-    return not Ticket.objects.filter(ticket_id=ticket_id).exists()
-    
-
-def handle_exception(class_name, action_name):
-    if settings.DEBUG:
-        error_message = f"You have an error in action: {class_name}.{action_name}"
-        result_status_code = 485
-    else:
-        error_message = "Internal Server Error"
-        result_status_code = 500
-    return error_message, result_status_code
-
-def get_current_action_name():
-    frame = inspect.currentframe().f_back
-    action_name = inspect.getframeinfo(frame).function
-    return action_name
-
-
-def get_current_class_name():
-    frame = inspect.currentframe().f_back
-    class_name = frame.f_locals.get('self').__class__.__name__
-    return class_name
 
 class user_view(viewsets.ModelViewSet):
 
@@ -382,21 +299,8 @@ class capacity_view(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='seat_costs_per_match/(?P<match_id>[^/.]+)/(?P<seat_position>[^/.]+)')
     def seat_costs_per_match(self, request, match_id=None, seat_position=None):
         try:
-            capacity = Capacity.objects.get(id=match_id)
-            stadium = Stadium.objects.get(id=app_version)
-            seat_position = int(seat_position)
-
-            if seat_position in stadium.stadium_seat_category1:
-                category = "category1"
-            if seat_position in stadium.stadium_seat_category2:
-                category = "category2"
-            if seat_position in stadium.stadium_seat_category3:
-                category = "category3"
-            if seat_position in stadium.stadium_seat_category4:
-                category = "category4"
-
             data = {
-                'seat_costs_per_position': capacity.seat_costs_per_position[category]
+                'seat_costs_per_position': calculate_seat_cost_by_seat_position(match_id, seat_position)
             }
             return Response(data, status=status.HTTP_200_OK)
         except capacity.DoesNotExist:
@@ -601,94 +505,207 @@ class ticket_view(viewsets.ViewSet):
     # pagination_class = CustomPagination
     # permission_classes = [permissions.IsAuthenticated]
 
+    @action(detail=False, methods=['get'], url_path='step1_get_total_remaining_seat_per_match/(?P<match_id>[^/.]+)')
+    def step1_get_total_remaining_seat_per_match(self, request, match_id=None):
+        try:
+            seats_obj = Capacity.objects.get(id=match_id)
+            capacity_information = seats_obj.stadium_audience_structure
+
+            total_seat_host = sum(item[1] * item[2] for item in capacity_information['host_section'])
+            total_seat_guest = sum(item[1] * item[2] for item in capacity_information['guest_section'])
+
+            all_sold_host_seats = Ticket.objects.filter(
+                match=match_id,
+                seat_type='host'
+            ).count()
+            all_sold_guest_seats = Ticket.objects.filter(
+                match=match_id,
+                seat_type='guest'
+            ).count()
+
+            all_available_host_seats = total_seat_host - all_sold_host_seats
+            all_available_guest_seats = total_seat_guest - all_sold_guest_seats
+            all_available_seats = all_available_host_seats + all_available_guest_seats
+
+            data = {
+                'all_available_seats': all_available_seats,
+                'all_available_host_seats': all_available_host_seats,
+                'all_available_guest_seats': all_available_guest_seats
+            }
+            return Response(data, status=status.HTTP_200_OK)
+        except capacity.DoesNotExist:
+            return Response({'error': 'capacity not found for the given match ID'}, status=status.HTTP_404_NOT_FOUND)
+
+
+    # @action(detail=False, methods=['get'], url_path='step2_get_seat_position_in_specific_type/(?P<match_id>[^/.]+)/(?P<seat_type>[^/.]+)')
+    # def step2_get_seat_position_in_specific_type(self, request, match_id=None, seat_type=None):
+
+    #     capacity = Capacity.objects.get(id=match_id)
+    #     stadium = Stadium.objects.get(id=app_version)
+        
+    #     if seat_type == 'host':
+    #         positions = stadium.stadium_host_positions
+    #         capacities = capacity.available_seats_per_position_host
+    #     else:
+    #         positions = stadium.stadium_guest_positions
+    #         capacities = capacity.available_seats_per_position_guest
+
+            
+    #     positions_list = []
+        
+
+    #     for position, remaining_seats in zip(positions, capacities):
+
+    #         position_info = {
+    #             "position_number": position,
+    #             "capacity": remaining_seats,
+    #             "seat_costs": calculate_seat_cost_by_seat_position(match_id, position)
+
+    #         }
+    #         positions_list.append(position_info)
+            
+    #     return Response(positions_list, status=status.HTTP_200_OK)
+        
+    
     @action(detail=False, methods=['get'], url_path='step2_get_seat_position_in_specific_type/(?P<match_id>[^/.]+)/(?P<seat_type>[^/.]+)')
     def step2_get_seat_position_in_specific_type(self, request, match_id=None, seat_type=None):
 
-        capacity = Capacity.objects.get(id=match_id)
-        stadium = Stadium.objects.get(id=app_version)
+        capacity_obj = Capacity.objects.get(id=match_id)
+        capacity = capacity_obj.stadium_audience_structure
+        
         
         if seat_type == 'host':
-            positions = stadium.stadium_host_positions
-            capacities = capacity.available_seats_per_position_host
+            positions = [item[0] for item in capacity['host_section']]
+            capacities = [(item[1] * item[2] - calculate_sold_seat_per_match(match_id, item[0])) for item in capacity['host_section']]
         else:
-            positions = stadium.stadium_guest_positions
-            capacities = capacity.available_seats_per_position_guest
+            positions = [item[0] for item in capacity['guest_section']]
+            capacities = [(item[1] * item[2] - calculate_sold_seat_per_match(match_id, item[0])) for item in capacity['guest_section']]
 
-        
-
-            
-            
-            
             
         positions_list = []
         
 
         for position, remaining_seats in zip(positions, capacities):
 
-            if position in stadium.stadium_seat_category1:
-                category = "category1"
-            if position in stadium.stadium_seat_category2:
-                category = "category2"
-            if position in stadium.stadium_seat_category3:
-                category = "category3"
-            if position in stadium.stadium_seat_category4:
-                category = "category4"
-            seat_costs= capacity.seat_costs_per_position[category]
             position_info = {
                 "position_number": position,
                 "capacity": remaining_seats,
-                "seat_costs": seat_costs
+                "seat_costs": calculate_seat_cost_by_seat_position(match_id, position)
 
             }
             positions_list.append(position_info)
             
-        return Response(positions_list, status=status.HTTP_200_OK)
+        return Response(positions_list, status=status.HTTP_200_OK)       
+            
+            
+
+
+    # @action(detail=False, methods=['get'], url_path='step3_get_seat_rows_in_specific_position/(?P<match_id>[^/.]+)/(?P<seat_position>[^/.]+)/(?P<seat_type>[^/.]+)')
+    # def step3_get_seat_rows_in_specific_position(self, request, match_id=None, seat_position=None, seat_type=None):
+    #     stadium = Stadium.objects.get(id=app_version)
+    #     extract_total_seats = Capacity.objects.get(id=match_id)
+    #     total_seats = extract_total_seats.seats_per_row
         
-           
-            
-            
+    #     if seat_type == 'host':
+    #         rows = stadium.stadium_rows_in_host_positions
+    #     else:
+    #         rows = stadium.stadium_rows_in_guest_positions
 
 
+    #     positions_list = []
+        
+
+    #     for row in rows:
+    #         ticket_count = Ticket.objects.filter(
+    #             match=match_id,
+    #             seat_row=row,
+    #             seat_type=seat_type,
+    #             seat_position=seat_position
+    #         ).count()
+    #         remaining_seats = total_seats - ticket_count
+
+    #         position_info = {
+    #             "row_number": row,
+    #             "capacity": remaining_seats
+
+    #         }
+    #         positions_list.append(position_info)
+            
+    #     return Response(positions_list, status=status.HTTP_200_OK)
     @action(detail=False, methods=['get'], url_path='step3_get_seat_rows_in_specific_position/(?P<match_id>[^/.]+)/(?P<seat_position>[^/.]+)/(?P<seat_type>[^/.]+)')
     def step3_get_seat_rows_in_specific_position(self, request, match_id=None, seat_position=None, seat_type=None):
-        stadium = Stadium.objects.get(id=app_version)
-        extract_total_seats = Capacity.objects.get(id=match_id)
-        total_seats = extract_total_seats.seats_per_row
+        
+        capacity_obj = Capacity.objects.get(id=match_id)
+        capacity = capacity_obj.stadium_audience_structure
+        
         
         if seat_type == 'host':
-            rows = stadium.stadium_rows_in_host_positions
+            cap_ins = [cap_record for cap_record in capacity['host_section'] if cap_record[0] == int(seat_position)]
+            rows = cap_ins[0][1]
+            seats = cap_ins[0][2]
         else:
-            rows = stadium.stadium_rows_in_guest_positions
+            cap_ins = [cap_record for cap_record in capacity['host_section'] if cap_record[0] == int(seat_position)]
+            rows = int(cap_ins[0][1])
+            seats = int(cap_ins[0][2])
 
-
-        positions_list = []
+        row_list = []
         
+        for row in range(1, rows + 1):
 
-        for row in rows:
-            ticket_count = Ticket.objects.filter(
-                match=match_id,
-                seat_row=row,
-                seat_type=seat_type,
-                seat_position=seat_position
-            ).count()
-            remaining_seats = total_seats - ticket_count
-
-            position_info = {
+            row_info = {
                 "row_number": row,
-                "capacity": remaining_seats
+                "capacity": seats - calculate_sold_seat_per_row(match_id, seat_position, row, seat_type)
 
             }
-            positions_list.append(position_info)
+            row_list.append(row_info)
             
-        return Response(positions_list, status=status.HTTP_200_OK)
+        return Response(row_list, status=status.HTTP_200_OK) 
 
 
-    @action(detail=False, methods=['get'], url_path='step4_get_seats_status_in_specific_row/(?P<match_id>[^/.]+)/(?P<seat_position>[^/.]+)/(?P<seat_row>[^/.]+)')
-    def step4_get_seats_status_in_specific_row(self, request, match_id=None, seat_position=None, seat_row=None):
+
+    # @action(detail=False, methods=['get'], url_path='step4_get_seats_status_in_specific_row/(?P<match_id>[^/.]+)/(?P<seat_position>[^/.]+)/(?P<seat_row>[^/.]+)')
+    # def step4_get_seats_status_in_specific_row(self, request, match_id=None, seat_position=None, seat_row=None):
+    #     try:
+
+    #         extract_total_seats = Capacity.objects.get(id=match_id)
+    #         total_seats = extract_total_seats.seats_per_row
+
+    #         tickets = Ticket.objects.filter(
+    #         match=match_id,
+    #         seat_row=seat_row,
+    #         seat_position=seat_position
+    #     ).values('seat_number', 'seat_availibility')
+    #         tickets_dict = {ticket['seat_number']: ticket['seat_availibility'] for ticket in tickets}
+    #         seat_status_list = [
+    #         {
+    #             "seat_number": str(seat_number),
+    #             "seat_availibility": tickets_dict.get(str(seat_number), True)
+    #         }
+    #         for seat_number in range(1, total_seats + 1)
+    #     ]
+        
+            
+    #         return Response(seat_status_list)
+    #     except Ticket.DoesNotExist:
+    #         return Response({"error": "No tickets found for the given criteria."}, status=status.HTTP_404_NOT_FOUND)
+    #     except Exception as e:
+    #         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], url_path='step4_get_seats_status_in_specific_row/(?P<match_id>[^/.]+)/(?P<seat_position>[^/.]+)/(?P<seat_row>[^/.]+)/(?P<seat_type>[^/.]+)')
+    def step4_get_seats_status_in_specific_row(self, request, match_id=None, seat_position=None, seat_row=None, seat_type=None):
+        extract_total_seats = Capacity.objects.get(id=match_id)
+        seats_details = extract_total_seats.stadium_audience_structure
+
+        if seat_type == 'host':
+            cap_ins = [cap_record for cap_record in seats_details['host_section'] if cap_record[0] == int(seat_position)]
+            seats = cap_ins[0][2]
+        else:
+            cap_ins = [cap_record for cap_record in seats_details['host_section'] if cap_record[0] == int(seat_position)]
+            seats = int(cap_ins[0][2])
+        
         try:
 
-            extract_total_seats = Capacity.objects.get(id=match_id)
-            total_seats = extract_total_seats.seats_per_row
+            
 
             tickets = Ticket.objects.filter(
             match=match_id,
@@ -701,7 +718,7 @@ class ticket_view(viewsets.ViewSet):
                 "seat_number": str(seat_number),
                 "seat_availibility": tickets_dict.get(str(seat_number), True)
             }
-            for seat_number in range(1, total_seats + 1)
+            for seat_number in range(1, seats + 1)
         ]
         
             
@@ -924,7 +941,7 @@ class ticket_view(viewsets.ViewSet):
 
         
         match_obj = Match.objects.get(id=match_id)
-        capacity_obj = Capacity.objects.get(id=match_id)
+        # capacity_obj = Capacity.objects.get(id=match_id)
         stadium_obj = Stadium.objects.get(id=app_version)
 
         successful_tickets = []
@@ -940,7 +957,7 @@ class ticket_view(viewsets.ViewSet):
             
             if check_order_history(national_id, match_id) and check_seat_availibility(ticket_id):
                 
-                capacity_obj.sell_ticket(match_id, int(seat_position), int(seat_row), seat_type)
+                # capacity_obj.sell_ticket(match_id, int(seat_position), int(seat_row), seat_type)
                 
                 ticket_instance = Ticket.objects.create(
                     mobile=mobile,
@@ -951,7 +968,7 @@ class ticket_view(viewsets.ViewSet):
                     seat_position=seat_position,
                     seat_number=seat_number,
                     seat_type=seat_type,
-                    seat_costs=150000,
+                    seat_costs=calculate_seat_cost_by_seat_position(match_id, seat_position),
                     seat_availibility=False,
                     ticket_id=ticket_id
 
@@ -1090,14 +1107,3 @@ class ticket_view(viewsets.ViewSet):
         
         
 
-# sample json
-# {
-#   "mobile": "09374848660",
-#   "match": 1,
-#   "seat_type": "host",
-#   "seat_position": "1",
-#   "seat_row": "1",
-#   "seat_owners": [
-#     {"national_id": "0010857222", "seat_number": "11"}, {"national_id": "0010857223", "seat_number": "12"}, {"national_id": "0010857224", "seat_number": "13"}
-#   ]
-# }

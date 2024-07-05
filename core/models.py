@@ -71,6 +71,7 @@ class Capacity(models.Model):
     available_seats_per_position_guest = models.JSONField(default=list)
 
     seat_costs_per_position = models.JSONField(default=dict)
+    stadium_audience_structure = models.JSONField(default=dict)
 
     def save(self, *args, **kwargs):
         if not self.pk:  
