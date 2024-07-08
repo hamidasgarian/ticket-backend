@@ -872,14 +872,41 @@ class ticket_view(viewsets.ViewSet):
     @action(detail=False, methods=['post'])
     @csrf_exempt
     def user_order_history(self, request):
-
-
         request_data = json.loads(request.body)
         mobile = request_data.get('mobile')
-        tickets = Ticket.get_by_mobile(mobile)
-        serializer = TicketSerializer(tickets, many=True)
-        # tickets_data = list(tickets.values('id', 'mobile', 'seat_owner', 'match_id'))  # Customize the fields you want to return
-        return JsonResponse(serializer.data, safe=False)
+        tickets = Ticket.objects.filter(mobile=mobile).select_related('match')
+
+
+        response_data = []
+        for ticket in tickets:
+            response_data.append({
+                'id': ticket.id,
+                'mobile': ticket.mobile,
+                'seat_owner': ticket.seat_owner,
+                'seat_type': ticket.seat_type,
+                'seat_position': ticket.seat_position,
+                'seat_row': ticket.seat_row,
+                'seat_number': ticket.seat_number,
+                'buy_date': ticket.buy_date,
+                'seat_availibility': ticket.seat_availibility,
+                'ticket_used': ticket.ticket_used,
+                'ticket_id': ticket.ticket_id,
+                'seat_costs': ticket.seat_costs,
+                'stadium': ticket.stadium.id,
+                'match': ticket.match.id,
+                'match_name': ticket.match.match_name
+            })
+
+        return JsonResponse(response_data, safe=False)
+
+
+
+        # request_data = json.loads(request.body)
+        # mobile = request_data.get('mobile')
+        # tickets = Ticket.get_by_mobile(mobile)
+        # serializer = TicketSerializer(tickets, many=True)
+        # ### tickets_data = list(tickets.values('id', 'mobile', 'seat_owner', 'match_id'))  # Customize the fields you want to return
+        # return JsonResponse(serializer.data, safe=False)
     
     @swagger_auto_schema(
         method='post',
