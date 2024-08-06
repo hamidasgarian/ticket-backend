@@ -296,6 +296,36 @@ class capacity_view(viewsets.ModelViewSet):
     queryset = Capacity.objects.all()
     serializer_class = CapacitySerializer
 
+
+    @action(detail=False, methods=['get'], url_path='get_payment_token/(?P<amount>[^/.]+)')
+    def get_payment_token(self, request, amount=None):
+        if amount:
+            payload = {
+                "WSContext": {
+                    "UserId": "411408452",
+                    "Password": "398617"
+                },
+                "TransType": "EN_GOODS",
+                "ReserveNum": "123456",
+                "MerchantId": "411408452",
+                "Amount": str(amount),
+                "RedirectUrl": "http://127.0.0.1:3000/"
+            }
+            headers = {
+                'Content-Type': 'application/json'
+            }
+            response = requests.post(
+                'https://ref.sayancard.ir/ref-payment/RestServices/mts/generateTokenWithNoSign/',
+                json=payload,
+                headers=headers
+            )
+            if response.status_code == 200:
+                return Response(response.json(), status=status.HTTP_200_OK)
+            else:
+                return Response(response.json(), status=response.status_code)
+        return Response({"error": "Amount not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+
     @action(detail=False, methods=['get'], url_path='seat_costs_per_match/(?P<match_id>[^/.]+)/(?P<seat_position>[^/.]+)')
     def seat_costs_per_match(self, request, match_id=None, seat_position=None):
         try:
