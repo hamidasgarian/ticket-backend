@@ -1163,4 +1163,25 @@ class ticket_view(viewsets.ViewSet):
             return JsonResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         
+    @action(detail=False, methods=['post'])
+    @csrf_exempt
+    def verify_ticket_v2(self, request):
+        
+        try:
+            request_data = json.loads(request.body)
+            ticket_id = request_data.get('ticket_id')
+            try:
+                ticket = Ticket.objects.get(ticket_id=ticket_id)
+            except Ticket.DoesNotExist:
+                return JsonResponse({"detail": "Ticket is fake."}, status=status.HTTP_404_NOT_FOUND)
+            
 
+            if ticket.ticket_used == 0:
+                ticket.ticket_used = 1
+                ticket.save()
+                return JsonResponse({"detail": "Ticket is verified."}, status=status.HTTP_200_OK)
+            else:
+                return JsonResponse({"detail": "Ticket not verified."}, status=status.HTTP_401_UNAUTHORIZED)
+            
+        except Exception as e:
+            return JsonResponse({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
